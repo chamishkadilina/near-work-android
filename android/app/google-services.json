@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "871321450809",
+    "project_id": "nearwork-26cd4",
+    "storage_bucket": "nearwork-26cd4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:871321450809:android:1c20053557900041b390e8",
+        "android_client_info": {
+          "package_name": "com.chamishkadilina.nearwork"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "871321450809-bduijoa2q2n6si2f1jml7n15horc90ka.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.chamishkadilina.nearwork",
+            "certificate_hash": "b954ea9fae4088138c6972db821155da9db12be9"
+          }
+        },
+        {
+          "client_id": "871321450809-ceebbh8i2pbkgp1ikgdoksqr4muesje5.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.chamishkadilina.nearwork",
+            "certificate_hash": "cf8924b4cc843a75cc9db26a579ca97bfbe1c2ed"
+          }
+        },
+        {
+          "client_id": "871321450809-uoeoi0tcuggirj2j2737q6ai318v5upc.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBOy7Cj07cucJM5K25oEyW7Sw7J0NJ8gmQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "871321450809-uoeoi0tcuggirj2j2737q6ai318v5upc.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
