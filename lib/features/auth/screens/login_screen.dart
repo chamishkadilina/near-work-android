@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:nearwork/features/auth/providers/auth_provider.dart';
-import 'package:nearwork/features/auth/widgets/login_options_widget.dart';
 import 'package:nearwork/core/constants/app_colors.dart';
 
 class LoginScreen extends StatelessWidget {
@@ -80,8 +80,18 @@ class LoginScreen extends StatelessWidget {
                   ),
                   const Spacer(flex: 1),
 
-                  // Login options with loading state
-                  const LoginOptionsWidget(),
+                  // Google SVG Button
+                  GestureDetector(
+                    onTap: () async {
+                      if (!authProvider.isAuthenticating) {
+                        await authProvider.signInWithGoogle();
+                      }
+                    },
+                    child: SvgPicture.asset(
+                      'assets/icons/google_signin_button.svg',
+                      height: 48,
+                    ),
+                  ),
 
                   // Error message if any
                   if (authProvider.status == AuthStatus.error &&

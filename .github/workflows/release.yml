@@ -1,0 +1,73 @@
+name: Build and Release APK
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build APK
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.2'
+          channel: 'stable'
+      
+      - name: Get dependencies
+        run: flutter pub get
+      
+      - name: Build APK
+        run: flutter build apk --release
+      
+      - name: Rename APK
+        run: |
+          mkdir -p release
+          cp build/app/outputs/flutter-apk/app-release.apk release/nearwork-${{ github.ref_name }}.apk
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: release/nearwork-${{ github.ref_name }}.apk
+          body: |
+            ## NearWork ${{ github.ref_name }}
+            
+            ### 🎯 What's New
+            Find jobs near you with the latest NearWork update!
+            
+            ### 📱 Installation
+            1. Download nearwork-${{ github.ref_name }}.apk
+            2. Enable "Install from Unknown Sources" on your Android device
+            3. Install the APK
+            
+            ### ✨ Features
+            🗺️ Smart map-based job search
+            📍 Find jobs in your location
+            💰 Transparent salary information
+            ⭐ Verified job listings
+            📱 Easy job application process
+            
+            ### 🐛 Bug Fixes & Improvements
+            - Improved app performance
+            - Better location accuracy
+            - Enhanced user experience
+            
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
