@@ -37,14 +37,15 @@ class _NavBarState extends State<NavBar> {
         selectedItemColor: AppColors.primary,
         unselectedItemColor: AppColors.textSecondary,
         backgroundColor: AppColors.background,
+        iconSize: 28,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.explore_rounded),
             label: 'Explore',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_rounded),
-            label: 'Messages',
+            icon: Icon(Icons.inbox_rounded),
+            label: 'Inbox',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.add_box_rounded),

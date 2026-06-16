@@ -1,11 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:nearwork/core/constants/app_colors.dart';
+import 'package:nearwork/core/services/app_share_service.dart';
 import 'package:nearwork/features/auth/providers/auth_provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:nearwork/features/profile/widgets/cv_section_widget.dart';
+import 'package:nearwork/features/profile/widgets/logout_dialog.dart';
+import 'package:nearwork/features/profile/widgets/more_section_widget.dart';
+import 'package:nearwork/features/profile/widgets/profile_section_widget.dart';
+import 'package:nearwork/features/profile/widgets/saved_jobs_section_widget.dart';
+import 'package:nearwork/features/profile/widgets/settings_dialog.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
+
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  Future<void> _handleShareApp() async {
+    try {
+      await AppShareService.shareApp();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Unable to share app at the moment'),
+            backgroundColor: Colors.red.shade600,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -13,172 +41,159 @@ class ProfilePage extends StatelessWidget {
     final user = authProvider.user;
 
     if (user == null) {
-      return const Scaffold(body: Center(child: Text('Not authenticated')));
+      return const Scaffold(
+        body: Center(
+          child: Text(
+            'Not authenticated',
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
+        ),
+      );
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profile'),
-        backgroundColor: AppColors.background,
-        elevation: 0,
-        centerTitle: true,
-        titleTextStyle: const TextStyle(
-          color: AppColors.textPrimary,
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      body: StreamBuilder<DocumentSnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
-            );
-          }
+    return SafeArea(
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8F9FB),
+        body: StreamBuilder<DocumentSnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator(color: AppColors.primary),
+              );
+            }
 
-          if (snapshot.hasError) {
-            return Center(
-              child: Text(
-                'Error loading profile: ${snapshot.error}',
-                style: const TextStyle(color: AppColors.textSecondary),
-              ),
-            );
-          }
+            if (snapshot.hasError) {
+              return Center(
+                child: Text(
+                  'Error loading profile: ${snapshot.error}',
+                  style: const TextStyle(color: AppColors.textSecondary),
+                ),
+              );
+            }
 
-          if (!snapshot.hasData || !snapshot.data!.exists) {
-            return const Center(
-              child: Text(
-                'User not found',
-                style: TextStyle(color: AppColors.textSecondary),
-              ),
-            );
-          }
+            if (!snapshot.hasData || !snapshot.data!.exists) {
+              return const Center(
+                child: Text(
+                  'User not found',
+                  style: TextStyle(color: AppColors.textSecondary),
+                ),
+              );
+            }
 
-          final userData = snapshot.data!.data() as Map<String, dynamic>;
-          final username = userData['username'] as String? ?? 'User';
-          final email = userData['email'] as String? ?? 'No email';
-          final photoURL = userData['photoURL'] as String? ?? '';
+            final userData = snapshot.data!.data() as Map<String, dynamic>;
+            final username = userData['username'] as String? ?? 'User';
+            final email = userData['email'] as String? ?? 'No email';
+            final photoURL = userData['photoURL'] as String? ?? '';
 
-          return SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                const SizedBox(height: 40),
-
-                // Profile Picture
-                Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: AppColors.primary, width: 3),
-                    color: AppColors.surface,
-                  ),
-                  child: photoURL.isNotEmpty
-                      ? ClipOval(
-                          child: Image.network(
-                            photoURL,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return const Center(
-                                child: Icon(
-                                  Icons.person,
-                                  size: 60,
-                                  color: AppColors.primary,
-                                ),
-                              );
-                            },
-                          ),
-                        )
-                      : const Center(
-                          child: Icon(
-                            Icons.person,
-                            size: 60,
-                            color: AppColors.primary,
-                          ),
+            return SingleChildScrollView(
+              child: Column(
+                children: [
+                  // Profile Section
+                  ProfileSectionWidget(
+                    displayName: username,
+                    email: email,
+                    photoURL: photoURL.isNotEmpty ? photoURL : null,
+                    onEditTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Edit profile coming soon!'),
+                          duration: Duration(seconds: 2),
                         ),
-                ),
-                const SizedBox(height: 24),
-
-                // Username
-                Text(
-                  username,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
+                      );
+                    },
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
 
-                // Email
-                Text(
-                  email,
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 14,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 40),
+                  const SizedBox(height: 12),
 
-                // Sign Out Button
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        showDialog(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: const Text('Sign Out'),
-                            content: const Text(
-                              'Are you sure you want to sign out?',
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: const Text('Cancel'),
-                              ),
-                              TextButton(
-                                onPressed: () {
-                                  authProvider.signOut();
-                                  Navigator.pop(context);
-                                },
-                                child: const Text('Sign Out'),
-                              ),
-                            ],
-                          ),
+                  // CV Section
+                  const CvSectionWidget(),
+
+                  const SizedBox(height: 12),
+
+                  // Saved Jobs Section
+                  SavedJobsSectionWidget(),
+
+                  const SizedBox(height: 12),
+
+                  // More Section
+                  MoreSectionWidget(
+                    onFaqTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('FAQ page coming soon!'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                    onSupportTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Support center coming soon!'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                    onPrivacyTap: () async {
+                      final Uri url = Uri.parse(
+                        "https://nearwork.example.com/privacy-policy",
+                      );
+
+                      if (await canLaunchUrl(url)) {
+                        await launchUrl(
+                          url,
+                          mode: LaunchMode.externalApplication,
                         );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.error,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: const Text(
-                        'Sign Out',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
+                      } else {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Could not launch privacy policy'),
+                            ),
+                          );
+                        }
+                      }
+                    },
+                    onTermsTap: () async {
+                      final Uri url = Uri.parse(
+                        "https://nearwork.example.com/terms",
+                      );
+
+                      if (await canLaunchUrl(url)) {
+                        await launchUrl(
+                          url,
+                          mode: LaunchMode.externalApplication,
+                        );
+                      } else {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Could not launch terms'),
+                            ),
+                          );
+                        }
+                      }
+                    },
+                    onShareAppTap: _handleShareApp,
+                    onSignOutTap: () async {
+                      final bool? shouldLogout = await LogoutDialog.show(
+                        context,
+                      );
+                      if (shouldLogout == true) {
+                        if (mounted) {
+                          await authProvider.signOut();
+                        }
+                      }
+                    },
                   ),
-                ),
-              ],
-            ),
-          );
-        },
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
