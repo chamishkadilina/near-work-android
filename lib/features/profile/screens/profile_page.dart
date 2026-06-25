@@ -3,12 +3,13 @@ import 'package:nearwork/core/constants/app_colors.dart';
 import 'package:nearwork/core/services/app_share_service.dart';
 import 'package:nearwork/features/auth/providers/auth_provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:nearwork/features/profile/screens/faq_page.dart';
 import 'package:nearwork/features/profile/widgets/cv_section_widget.dart';
 import 'package:nearwork/features/profile/widgets/logout_dialog.dart';
 import 'package:nearwork/features/profile/widgets/more_section_widget.dart';
 import 'package:nearwork/features/profile/widgets/profile_section_widget.dart';
 import 'package:nearwork/features/profile/widgets/saved_jobs_section_widget.dart';
-import 'package:nearwork/features/profile/widgets/settings_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -20,6 +21,18 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
+  Future<void> _launchUrl(String url) async {
+    try {
+      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open the link')),
+        );
+      }
+    }
+  }
+
   Future<void> _handleShareApp() async {
     try {
       await AppShareService.shareApp();
@@ -121,62 +134,19 @@ class _ProfilePageState extends State<ProfilePage> {
 
                   // More Section
                   MoreSectionWidget(
-                    onFaqTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('FAQ page coming soon!'),
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
-                    },
-                    onSupportTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Support center coming soon!'),
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
-                    },
-                    onPrivacyTap: () async {
-                      final Uri url = Uri.parse(
-                        "https://nearwork.example.com/privacy-policy",
-                      );
-
-                      if (await canLaunchUrl(url)) {
-                        await launchUrl(
-                          url,
-                          mode: LaunchMode.externalApplication,
-                        );
-                      } else {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Could not launch privacy policy'),
-                            ),
-                          );
-                        }
-                      }
-                    },
-                    onTermsTap: () async {
-                      final Uri url = Uri.parse(
-                        "https://nearwork.example.com/terms",
-                      );
-
-                      if (await canLaunchUrl(url)) {
-                        await launchUrl(
-                          url,
-                          mode: LaunchMode.externalApplication,
-                        );
-                      } else {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Could not launch terms'),
-                            ),
-                          );
-                        }
-                      }
-                    },
+                    onFaqTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const FaqPage()),
+                    ),
+                    onSupportTap: () => _launchUrl(
+                      'https://sites.google.com/view/nearwork-help-center/home',
+                    ),
+                    onPrivacyTap: () => _launchUrl(
+                      'https://sites.google.com/view/nearwork-privacy-policy/home',
+                    ),
+                    onTermsTap: () => _launchUrl(
+                      'https://sites.google.com/view/nearwork-terms-of-use/home',
+                    ),
                     onShareAppTap: _handleShareApp,
                     onSignOutTap: () async {
                       final bool? shouldLogout = await LogoutDialog.show(
@@ -187,6 +157,25 @@ class _ProfilePageState extends State<ProfilePage> {
                           await authProvider.signOut();
                         }
                       }
+                    },
+                  ),
+
+                  // Version
+                  FutureBuilder<PackageInfo>(
+                    future: PackageInfo.fromPlatform(),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) return const SizedBox.shrink();
+                      final info = snapshot.data!;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 24),
+                        child: Text(
+                          'Version ${info.version} (${info.buildNumber})',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade400,
+                          ),
+                        ),
+                      );
                     },
                   ),
                 ],

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:provider/provider.dart';
 import 'package:nearwork/core/constants/app_colors.dart';
+import 'package:nearwork/core/models/job.dart';
+import 'package:nearwork/features/explore/providers/job_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ExplorePage extends StatefulWidget {
@@ -15,7 +18,7 @@ class _ExplorePageState extends State<ExplorePage>
     with SingleTickerProviderStateMixin {
   GoogleMapController? _controller;
   GoogleMapController? _filterMapController;
-  Set<Marker> _markers = {};
+  BitmapDescriptor? _customIcon;
 
   // ── Filter panel animation ───────────────────────────────────────────────────
   bool _filterOpen = false;
@@ -41,44 +44,6 @@ class _ExplorePageState extends State<ExplorePage>
     zoom: 8,
   );
   static const _userLocation = LatLng(7.2083, 79.8358);
-
-  // ── Dummy job ─────────────────────────────────────────────────────────────────
-  static const _dummyJob = {
-    'title': 'කර්මාන්ත ශාලා ඇසුරුම් අංශය සදහා පුහුණු නොපුහුණු සේවක සේවිකාවන්',
-    'postedBy': 'Sihina Deshiya Rakiya',
-    'memberSince': 'May 2026',
-    'postedAgo': '5 hours',
-    'location': 'Colombo, Gampaha, Seeduwa',
-    'employer': 'Sihina pvt LTD',
-    'type': 'Full Time',
-    'salary': 'Rs 65,000 – 75,000',
-    'education': 'Ordinary Level',
-    'experience': '0 years',
-    'verified': true,
-    'description':
-        '''නව වසර සඳහා සුප්‍රසිද්ධ නිෂ්පාදන කර්මාන්තශාලා කිහිපයකට කඩිනමින් සේවක සේවිකාවන් බඳවා ගැනේ. අභිමානවත් රැකියාවකට හිමිකම් කීමට මෙන්න ඔබට අනගි අවස්ථාවක්.
-
-සේවා ස්ථාන: 
-කොළඹ | ගම්පහ | සීදුව
-
-ප්‍රතිලාභ සහ පහසුකම්:
-• මාසික වැටුප රු. 65,000 - 75,000 අතර.
-• දිනපතා හෝ සතිපතා වැටුප් ලබා ගැනීමේ හැකියාව.
-• පැමිණි දිනම රැකියාවට යොමු කෙරේ.
-• ආකර්ෂණීය අතිකාල දීමනා.
-• ආහාර සහ නවාතැන් පහසුකම් සැපයේ.
-• නිල ඇඳුම් සහ ප්‍රවාහන පහසුකම් නොමිලේ.
-• යහළුවන්, කණ්ඩායම් හෝ යුවළයන් වශයෙන් එකම ස්ථානයකට අයදුම් කිරීමේ අවස්ථාව.
-• අ.පො.ස. සාමාන්‍ය පෙළ නිම කළ අයටද අයදුම් කළ හැක.
-• වැටුපට අමතරව තවත් සුවිශේෂී දීමනා රැසක්.
-
-අප ඔබට අවශ්‍ය සියලුම තොරතුරු ලබා දීමට කැප වී සිටිමු. බඳවා ගැනීම් ඉතා සීමිත බැවින් අදම අයදුම් කරන්න. 
-(මෙය රජයේ ලියාපදිංචි ආයතනයකි)
-
-📞 වැඩි විස්තර සඳහා අමතන්න: 076 637 1823''',
-    'lat': 6.9271,
-    'lng': 79.8612,
-  };
 
   // ── Statics ───────────────────────────────────────────────────────────────────
   static const _jobTypes = ['Full Time', 'Part Time'];
@@ -147,12 +112,11 @@ class _ExplorePageState extends State<ExplorePage>
     _searchController = TextEditingController();
     _searchController.addListener(_onSearchChanged);
     _searchFocus.addListener(() {
-      // Hide suggestions when focus is lost
       if (!_searchFocus.hasFocus) {
         setState(() => _showSuggestions = false);
       }
     });
-    _initMarkersAsync();
+    _loadCustomIcon();
     _animCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 320),
@@ -161,6 +125,22 @@ class _ExplorePageState extends State<ExplorePage>
       parent: _animCtrl,
       curve: Curves.easeInOutCubic,
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<JobProvider>().fetchJobs();
+    });
+  }
+
+  Future<void> _loadCustomIcon() async {
+    try {
+      _customIcon = await BitmapDescriptor.asset(
+        const ImageConfiguration(size: Size(32, 32)),
+        'assets/icons/job_marker.png',
+      );
+    } catch (_) {
+      _customIcon = BitmapDescriptor.defaultMarkerWithHue(
+        BitmapDescriptor.hueAzure,
+      );
+    }
   }
 
   @override
@@ -212,49 +192,19 @@ class _ExplorePageState extends State<ExplorePage>
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
-  Future<void> _initMarkersAsync() async {
-    try {
-      final customIcon = await BitmapDescriptor.fromAssetImage(
-        const ImageConfiguration(size: Size(20, 20)),
-        'assets/icons/job_marker.png',
+  Set<Marker> _buildMarkers(List<Job> jobs) {
+    final icon =
+        _customIcon ??
+        BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure);
+
+    return jobs.map((job) {
+      return Marker(
+        markerId: MarkerId(job.id),
+        position: LatLng(job.latitude, job.longitude),
+        icon: icon,
+        onTap: () => _showJobBottomSheet(job),
       );
-
-      setState(() {
-        _markers = {
-          Marker(
-            markerId: const MarkerId('job_1'),
-            position: LatLng(
-              _dummyJob['lat'] as double,
-              _dummyJob['lng'] as double,
-            ),
-            icon: customIcon,
-            onTap: () => _showJobBottomSheet(_dummyJob),
-          ),
-        };
-      });
-    } catch (e) {
-      // Fallback to default if custom icon fails to load
-      _initMarkersDefault();
-    }
-  }
-
-  // Fallback method if custom icon fails
-  void _initMarkersDefault() {
-    setState(() {
-      _markers = {
-        Marker(
-          markerId: const MarkerId('job_1'),
-          position: LatLng(
-            _dummyJob['lat'] as double,
-            _dummyJob['lng'] as double,
-          ),
-          icon: BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueAzure,
-          ),
-          onTap: () => _showJobBottomSheet(_dummyJob),
-        ),
-      };
-    });
+    }).toSet();
   }
 
   void _toggleFilter() {
@@ -319,11 +269,14 @@ class _ExplorePageState extends State<ExplorePage>
   // ─────────────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
+    final jobProvider = context.watch<JobProvider>();
+    final markers = _buildMarkers(jobProvider.jobs);
+
     return Scaffold(
       body: SafeArea(
         child: Stack(
           children: [
-            GestureDetector(onTap: _dismissAll, child: _buildMap()),
+            GestureDetector(onTap: _dismissAll, child: _buildMap(markers)),
             Positioned(
               top: 16,
               left: 16,
@@ -937,10 +890,10 @@ class _ExplorePageState extends State<ExplorePage>
   // ─────────────────────────────────────────────────────────────────────────────
   //  Map
   // ─────────────────────────────────────────────────────────────────────────────
-  Widget _buildMap() => GoogleMap(
+  Widget _buildMap(Set<Marker> markers) => GoogleMap(
     initialCameraPosition: _initial,
     onMapCreated: (c) => _controller = c,
-    markers: _markers,
+    markers: markers,
     myLocationEnabled: true,
     myLocationButtonEnabled: false,
     zoomControlsEnabled: false,
@@ -1000,9 +953,9 @@ class _ExplorePageState extends State<ExplorePage>
     );
   }
 
-  Future<void> _openDirections(Map<String, dynamic> job) async {
+  Future<void> _openDirections(Job job) async {
     final uri = Uri.parse(
-      'https://www.google.com/maps/dir/?api=1&destination=${job['lat']},${job['lng']}',
+      'https://www.google.com/maps/dir/?api=1&destination=${job.latitude},${job.longitude}',
     );
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
@@ -1010,7 +963,7 @@ class _ExplorePageState extends State<ExplorePage>
   // ─────────────────────────────────────────────────────────────────────────────
   //  Job detail bottom sheet
   // ─────────────────────────────────────────────────────────────────────────────
-  void _showJobBottomSheet(Map<String, dynamic> job) {
+  void _showJobBottomSheet(Job job) {
     bool isSaved = false;
     showModalBottomSheet(
       context: context,
@@ -1061,7 +1014,7 @@ class _ExplorePageState extends State<ExplorePage>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              job['title'],
+                              job.title,
                               style: const TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w700,
@@ -1072,7 +1025,7 @@ class _ExplorePageState extends State<ExplorePage>
 
                             const SizedBox(height: 8),
 
-                            if (job['verified'] == true)
+                            if (job.verified)
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 8,
@@ -1115,14 +1068,14 @@ class _ExplorePageState extends State<ExplorePage>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const SizedBox(height: 16),
-                        _infoTableRow('Employer', job['employer']),
-                        _infoTableRow('Role', 'Store Assistant'),
-                        _infoTableRow('Job type', job['type']),
-                        _infoTableRow('Salary per month', job['salary']),
-                        _infoTableRow('Required education', job['education']),
+                        _infoTableRow('Employer', job.employer),
+                        _infoTableRow('Category', job.category),
+                        _infoTableRow('Job type', job.type),
+                        _infoTableRow('Salary per month', job.formattedSalary),
+                        _infoTableRow('Required education', job.education),
                         _infoTableRow(
                           'Required work experience',
-                          job['experience'],
+                          job.experience,
                           isLast: true,
                         ),
                         const SizedBox(height: 20),
@@ -1141,7 +1094,7 @@ class _ExplorePageState extends State<ExplorePage>
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           child: Text(
-                            job['description'],
+                            job.description,
                             style: const TextStyle(
                               fontSize: 14,
                               height: 1.65,

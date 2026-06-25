@@ -25,7 +25,7 @@ class MoreSectionWidget extends StatelessWidget {
       children: [
         const SizedBox(height: 8),
         MoreItemCard(
-          title: 'Frequently Asked Questions',
+          title: 'FAQ',
           icon: Icons.help_outline_rounded,
           onTap: onFaqTap,
         ),
