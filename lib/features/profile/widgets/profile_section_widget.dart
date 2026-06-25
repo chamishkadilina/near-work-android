@@ -5,7 +5,6 @@ class ProfileSectionWidget extends StatelessWidget {
   final String displayName;
   final String email;
   final String? photoURL;
-  final VoidCallback? onSettingsTap;
   final VoidCallback? onEditTap;
 
   const ProfileSectionWidget({
@@ -13,118 +12,145 @@ class ProfileSectionWidget extends StatelessWidget {
     required this.displayName,
     required this.email,
     this.photoURL,
-    this.onSettingsTap,
     this.onEditTap,
   });
+
+  static const double _bannerHeight = 120;
+  static const double _avatarRadius = 48;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-      child: Stack(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Stack(
+            clipBehavior: Clip.none,
             children: [
-              // Profile Avatar
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: AppColors.primary.withOpacity(0.2),
-                        width: 2,
-                      ),
-                    ),
-                    child: CircleAvatar(
-                      radius: 32,
-                      backgroundColor: AppColors.primary.withOpacity(0.1),
-                      backgroundImage: photoURL != null && photoURL!.isNotEmpty
-                          ? NetworkImage(photoURL!)
-                          : null,
-                      child: photoURL == null || photoURL!.isEmpty
-                          ? Icon(
-                              Icons.person_rounded,
-                              size: 32,
-                              color: AppColors.primary,
-                            )
-                          : null,
-                    ),
+              // Banner
+              Container(
+                height: _bannerHeight,
+                width: double.infinity,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFF1B2A1D),
+                      Color(0xFF1E3C24),
+                      Color(0xFF234A2B),
+                    ],
                   ),
-
-                  // Edit icon — bottom right of avatar
-                  Positioned(
-                    bottom: -2,
-                    right: -2,
-                    child: GestureDetector(
-                      onTap: onEditTap,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
-                        ),
-                        child: const Icon(
-                          Icons.edit_rounded,
-                          size: 14,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(width: 16),
-
-              // User Info
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      displayName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 20,
-                        color: AppColors.textPrimary,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 0),
-                    Text(
-                      email,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
                 ),
               ),
 
-              // Spacer for settings icon
-              const SizedBox(width: 36),
+              // Avatar — overlaps banner
+              Positioned(
+                left: 20,
+                bottom: -_avatarRadius,
+                child: Container(
+                  padding: const EdgeInsets.all(3),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                  child: CircleAvatar(
+                    radius: _avatarRadius,
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                    backgroundImage: photoURL != null && photoURL!.isNotEmpty
+                        ? NetworkImage(photoURL!)
+                        : null,
+                    child: photoURL == null || photoURL!.isEmpty
+                        ? const Icon(
+                            Icons.person_rounded,
+                            size: 46,
+                            color: AppColors.primary,
+                          )
+                        : null,
+                  ),
+                ),
+              ),
             ],
           ),
 
-          // Settings icon — top right
-          Positioned(
-            top: 0,
-            right: 0,
-            child: IconButton(
-              icon: const Icon(Icons.settings_rounded),
-              color: AppColors.primary,
-              iconSize: 22,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-              onPressed: onSettingsTap,
+          // Edit button — right-aligned below banner
+          Align(
+            alignment: Alignment.centerRight,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 16, top: 16),
+              child: GestureDetector(
+                onTap: onEditTap,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.edit_rounded,
+                    size: 18,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // Spacer for avatar overflow
+          SizedBox(height: _avatarRadius - 48),
+
+          // Name + email
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        displayName
+                            .split(' ')
+                            .map(
+                              (w) => w.isNotEmpty
+                                  ? '${w[0].toUpperCase()}${w.substring(1)}'
+                                  : '',
+                            )
+                            .join(' '),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 22,
+                          color: AppColors.textPrimary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Icon(
+                      Icons.verified_user,
+                      size: 20,
+                      color: AppColors.primary,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Passionate about finding the right opportunities. '
+                  'Open to new roles and networking.',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textPrimary,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Gampaha, Western Province, Sri Lanka',
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+                ),
+              ],
             ),
           ),
         ],

@@ -11,41 +11,13 @@ class AppShareService {
     }
   }
 
-  /// Formats the app share message
   static String _formatAppShareMessage() {
-    final StringBuffer buffer = StringBuffer();
-
-    // App Header
-    buffer.writeln('💼 NearWork - Find Jobs Near You!');
-    buffer.writeln();
-
-    // Tagline
-    buffer.writeln('Your next opportunity is just a tap away 🎯');
-    buffer.writeln();
-
-    // Key Features
-    buffer.writeln('✨ Why Choose NearWork?');
-    buffer.writeln('🗺️ Smart map-based job search');
-    buffer.writeln('📍 Find jobs in your location');
-    buffer.writeln('💰 Transparent salary information');
-    buffer.writeln('⭐ Verified job listings');
-    buffer.writeln('📱 Easy job application process');
-    buffer.writeln('🔔 Real-time job notifications');
-    buffer.writeln('💯 Completely FREE - No hidden charges!');
-    buffer.writeln();
-
-    // Social proof
-    buffer.writeln('🌟 Join thousands of job seekers across Sri Lanka');
-    buffer.writeln();
-
-    // Call to action
-    buffer.writeln('📲 Download NearWork now and start your job search:');
-    buffer.writeln(
-      'https://play.google.com/store/apps/details?id=com.nearwork.app',
-    );
-    buffer.writeln();
-    buffer.writeln('Your dream job is waiting! 🚀');
-
-    return buffer.toString();
+    return 'Hey! Check out NearWork - it finds jobs near your location on a map. '
+        'You can filter by salary, apply with your CV, call or chat with employers, '
+        'and even get directions to the workplace. You can post jobs too.\n'
+        '\n'
+        'It\'s free and made for Sri Lanka.\n'
+        '\n'
+        'https://play.google.com/store/apps/details?id=com.chamishkadilina.nearwork';
   }
 }
