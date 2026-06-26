@@ -119,7 +119,6 @@ class AuthProvider extends ChangeNotifier {
         await userDoc.update({
           'email': user.email,
           'username': user.displayName,
-          'photoURL': user.photoURL,
           'last_login': FieldValue.serverTimestamp(),
         });
       }
