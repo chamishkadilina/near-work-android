@@ -1,72 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:nearwork/core/constants/app_colors.dart';
+import 'package:nearwork/core/models/resume_item.dart';
 
-class ResumeItem {
-  final String id;
-  final String fileName;
-  final String fileSize;
-  final String fileType;
-  final String updatedLabel;
-  bool isDefault;
+class CvSectionWidget extends StatelessWidget {
+  final List<ResumeItem> resumes;
+  final Stream<List<ResumeItem>>? resumesStream;
+  final VoidCallback? onUploadTap;
+  final Future<void> Function(String id)? onDeleteResume;
+  final Future<void> Function(String id)? onSetDefault;
+  final bool isUploading;
 
-  ResumeItem({
-    required this.id,
-    required this.fileName,
-    required this.fileSize,
-    this.fileType = 'PDF Document',
-    required this.updatedLabel,
-    this.isDefault = false,
+  const CvSectionWidget({
+    super.key,
+    this.resumes = const [],
+    this.resumesStream,
+    this.onUploadTap,
+    this.onDeleteResume,
+    this.onSetDefault,
+    this.isUploading = false,
   });
-}
 
-class CvSectionWidget extends StatefulWidget {
-  const CvSectionWidget({super.key});
-
-  @override
-  State<CvSectionWidget> createState() => _CvSectionWidgetState();
-}
-
-class _CvSectionWidgetState extends State<CvSectionWidget> {
   static const int _maxResumes = 5;
 
-  final List<ResumeItem> _resumes = [
-    ResumeItem(
-      id: '1',
-      fileName: 'Chamishka_CV_2025.pdf',
-      fileSize: '245 KB',
-      updatedLabel: 'Updated 3 days ago',
-      isDefault: true,
-    ),
-    ResumeItem(
-      id: '2',
-      fileName: 'Chamishka_Cover_Letter.pdf',
-      fileSize: '128 KB',
-      updatedLabel: 'Updated 1 week ago',
-    ),
-  ];
-
   ResumeItem? get _defaultResume =>
-      _resumes.where((r) => r.isDefault).firstOrNull;
+      resumes.where((r) => r.isDefault).firstOrNull;
 
-  void _setDefault(String id) {
-    setState(() {
-      for (final r in _resumes) {
-        r.isDefault = r.id == id;
-      }
-    });
-  }
-
-  void _deleteResume(String id) {
-    setState(() {
-      final wasDefault = _resumes.firstWhere((r) => r.id == id).isDefault;
-      _resumes.removeWhere((r) => r.id == id);
-      if (wasDefault && _resumes.isNotEmpty) {
-        _resumes.first.isDefault = true;
-      }
-    });
-  }
-
-  void _showResumeSheet() {
+  void _showResumeSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -74,384 +33,33 @@ class _CvSectionWidgetState extends State<CvSectionWidget> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => StatefulBuilder(
-        builder: (context, setSheetState) => Padding(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Handle
-              Container(
-                width: 36,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 20),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+      builder: (_) => resumesStream != null
+          ? StreamBuilder<List<ResumeItem>>(
+              stream: resumesStream,
+              initialData: resumes,
+              builder: (context, snap) => _ResumeSheet(
+                resumes: snap.data ?? resumes,
+                maxResumes: _maxResumes,
+                isUploading: isUploading,
+                onUploadTap: onUploadTap,
+                onDeleteResume: onDeleteResume,
+                onSetDefault: onSetDefault,
               ),
-
-              // Title + count
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'My Resumes',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  Text(
-                    '${_resumes.length}/$_maxResumes',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade500,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Tap to set as default. Default resume is used when applying.',
-                  style: TextStyle(fontSize: 12.5, color: Colors.grey.shade500),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Resume list
-              if (_resumes.isNotEmpty)
-                ...List.generate(_resumes.length, (i) {
-                  final resume = _resumes[i];
-                  return Padding(
-                    padding: EdgeInsets.only(
-                      bottom: i < _resumes.length - 1 ? 10 : 0,
-                    ),
-                    child: GestureDetector(
-                      onTap: () {
-                        setSheetState(() => _setDefault(resume.id));
-                      },
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: resume.isDefault
-                              ? AppColors.primary.withValues(alpha: 0.05)
-                              : Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: resume.isDefault
-                                ? AppColors.primary.withValues(alpha: 0.4)
-                                : Colors.grey.shade200,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            // Radio indicator
-                            Container(
-                              width: 20,
-                              height: 20,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: resume.isDefault
-                                      ? AppColors.primary
-                                      : Colors.grey.shade400,
-                                  width: 2,
-                                ),
-                              ),
-                              child: resume.isDefault
-                                  ? Center(
-                                      child: Container(
-                                        width: 10,
-                                        height: 10,
-                                        decoration: const BoxDecoration(
-                                          color: AppColors.primary,
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                    )
-                                  : null,
-                            ),
-                            const SizedBox(width: 12),
-
-                            // PDF icon
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color:
-                                    AppColors.primary.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(
-                                Icons.picture_as_pdf_rounded,
-                                color: AppColors.primary,
-                                size: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-
-                            // File info
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Flexible(
-                                        child: Text(
-                                          resume.fileName,
-                                          style: const TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w600,
-                                            color: AppColors.textPrimary,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      if (resume.isDefault) ...[
-                                        const SizedBox(width: 6),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 6,
-                                            vertical: 2,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: AppColors.primary
-                                                .withValues(alpha: 0.15),
-                                            borderRadius:
-                                                BorderRadius.circular(4),
-                                          ),
-                                          child: const Text(
-                                            'Default',
-                                            style: TextStyle(
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w700,
-                                              color: AppColors.primary,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '${resume.fileSize} · ${resume.updatedLabel}',
-                                    style: TextStyle(
-                                      fontSize: 11.5,
-                                      color: Colors.grey.shade500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            // Delete button
-                            GestureDetector(
-                              onTap: () async {
-                                final confirm = await showDialog<bool>(
-                                  context: context,
-                                  barrierDismissible: false,
-                                  builder: (ctx) => AlertDialog(
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    elevation: 4,
-                                    backgroundColor: Colors.white,
-                                    contentPadding: const EdgeInsets.fromLTRB(
-                                      24, 16, 24, 16,
-                                    ),
-                                    actionsPadding: const EdgeInsets.fromLTRB(
-                                      16, 0, 16, 16,
-                                    ),
-                                    title: Row(
-                                      children: [
-                                        Icon(
-                                          Icons.delete_outline_rounded,
-                                          color: Colors.red.shade600,
-                                          size: 24,
-                                        ),
-                                        const SizedBox(width: 10),
-                                        const Text(
-                                          'Delete Resume',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 18,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    content: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Are you sure you want to delete "${resume.fileName}"?',
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            color: AppColors.textPrimary,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 10),
-                                        const Text(
-                                          'This action cannot be undone.',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: AppColors.textSecondary,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    actions: [
-                                      OutlinedButton(
-                                        onPressed: () =>
-                                            Navigator.pop(ctx, false),
-                                        style: OutlinedButton.styleFrom(
-                                          side: const BorderSide(
-                                            color: AppColors.primary,
-                                            width: 1.5,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(8),
-                                          ),
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 16,
-                                            vertical: 10,
-                                          ),
-                                        ),
-                                        child: const Text(
-                                          'Cancel',
-                                          style: TextStyle(
-                                            color: AppColors.primary,
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 14,
-                                          ),
-                                        ),
-                                      ),
-                                      ElevatedButton(
-                                        onPressed: () =>
-                                            Navigator.pop(ctx, true),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.red.shade600,
-                                          foregroundColor: Colors.white,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(8),
-                                          ),
-                                          elevation: 0,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 16,
-                                            vertical: 10,
-                                          ),
-                                        ),
-                                        child: const Text(
-                                          'Delete',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 14,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                                if (confirm != true) return;
-                                setSheetState(() => _deleteResume(resume.id));
-                                setState(() {});
-                                if (_resumes.isEmpty && context.mounted) {
-                                  Navigator.pop(context);
-                                }
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.all(4),
-                                child: Icon(
-                                  Icons.delete_outline_rounded,
-                                  size: 20,
-                                  color: Colors.grey.shade400,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                }),
-
-              if (_resumes.isNotEmpty) const SizedBox(height: 16),
-
-              // Upload zone
-              if (_resumes.length < _maxResumes)
-                GestureDetector(
-                  onTap: () {
-                    Navigator.pop(context);
-                    // TODO: implement file picker
-                  },
-                  child: CustomPaint(
-                    painter: _DashedBorderPainter(
-                      color: AppColors.primary.withValues(alpha: 0.4),
-                      borderRadius: 14,
-                      dashWidth: 6,
-                      dashGap: 4,
-                    ),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 28),
-                      child: Column(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.08),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.cloud_upload_outlined,
-                              color: AppColors.primary,
-                              size: 26,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          const Text(
-                            'Tap to upload a resume',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'PDF format recommended · ${_maxResumes - _resumes.length} slots remaining',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
+            )
+          : _ResumeSheet(
+              resumes: resumes,
+              maxResumes: _maxResumes,
+              isUploading: isUploading,
+              onUploadTap: onUploadTap,
+              onDeleteResume: onDeleteResume,
+              onSetDefault: onSetDefault,
+            ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final defaultResume = _defaultResume;
-    final hasResume = _resumes.isNotEmpty;
+    final hasResume = resumes.isNotEmpty;
 
     return Container(
       width: double.infinity,
@@ -473,7 +81,7 @@ class _CvSectionWidgetState extends State<CvSectionWidget> {
               ),
               if (hasResume)
                 Text(
-                  '${_resumes.length} resume${_resumes.length > 1 ? 's' : ''}',
+                  '${resumes.length} resume${resumes.length > 1 ? 's' : ''}',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
@@ -483,9 +91,8 @@ class _CvSectionWidgetState extends State<CvSectionWidget> {
             ],
           ),
           const SizedBox(height: 14),
-
           GestureDetector(
-            onTap: _showResumeSheet,
+            onTap: () => _showResumeSheet(context),
             child: CustomPaint(
               painter: _DashedBorderPainter(
                 color: Colors.grey.shade300,
@@ -496,11 +103,32 @@ class _CvSectionWidgetState extends State<CvSectionWidget> {
               child: Padding(
                 padding: const EdgeInsets.all(14),
                 child: hasResume
-                    ? _buildResumeCard(defaultResume!)
+                    ? _buildResumeCard(_defaultResume ?? resumes.first)
                     : _buildEmptyCard(),
               ),
             ),
           ),
+          if (isUploading)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Row(
+                children: [
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      color: AppColors.primary,
+                      strokeWidth: 2,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Uploading resume...',
+                    style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );
@@ -604,6 +232,392 @@ class _CvSectionWidgetState extends State<CvSectionWidget> {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  Resume management bottom sheet
+// ─────────────────────────────────────────────────────────────────────────────
+class _ResumeSheet extends StatelessWidget {
+  final List<ResumeItem> resumes;
+  final int maxResumes;
+  final bool isUploading;
+  final VoidCallback? onUploadTap;
+  final Future<void> Function(String id)? onDeleteResume;
+  final Future<void> Function(String id)? onSetDefault;
+
+  const _ResumeSheet({
+    required this.resumes,
+    required this.maxResumes,
+    required this.isUploading,
+    this.onUploadTap,
+    this.onDeleteResume,
+    this.onSetDefault,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 36,
+            height: 4,
+            margin: const EdgeInsets.only(bottom: 20),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'My Resumes',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              Text(
+                '${resumes.length}/$maxResumes',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Tap to set as default. Default resume is used when applying.',
+              style: TextStyle(fontSize: 12.5, color: Colors.grey.shade500),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          ...List.generate(resumes.length, (i) {
+            final resume = resumes[i];
+            return Padding(
+              padding: EdgeInsets.only(bottom: i < resumes.length - 1 ? 10 : 0),
+              child: GestureDetector(
+                onTap: () => onSetDefault?.call(resume.id),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: resume.isDefault
+                        ? AppColors.primary.withValues(alpha: 0.05)
+                        : Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: resume.isDefault
+                          ? AppColors.primary.withValues(alpha: 0.4)
+                          : Colors.grey.shade200,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 20,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: resume.isDefault
+                                ? AppColors.primary
+                                : Colors.grey.shade400,
+                            width: 2,
+                          ),
+                        ),
+                        child: resume.isDefault
+                            ? Center(
+                                child: Container(
+                                  width: 10,
+                                  height: 10,
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.primary,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              )
+                            : null,
+                      ),
+                      const SizedBox(width: 12),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.picture_as_pdf_rounded,
+                          color: AppColors.primary,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    resume.fileName,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                if (resume.isDefault) ...[
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primary.withValues(
+                                        alpha: 0.15,
+                                      ),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Text(
+                                      'Default',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${resume.fileSize} · ${resume.updatedLabel}',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: Colors.grey.shade500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () async {
+                          final confirm = await _showDeleteDialog(
+                            context,
+                            resume.fileName,
+                          );
+                          if (confirm == true) {
+                            onDeleteResume?.call(resume.id);
+                          }
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: Icon(
+                            Icons.delete_outline_rounded,
+                            size: 20,
+                            color: Colors.grey.shade400,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
+
+          if (resumes.isNotEmpty) const SizedBox(height: 16),
+
+          if (isUploading)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.2),
+                  ),
+                ),
+                child: const Row(
+                  children: [
+                    SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: AppColors.primary,
+                        strokeWidth: 2,
+                      ),
+                    ),
+                    SizedBox(width: 14),
+                    Text(
+                      'Uploading resume...',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+          if (resumes.length < maxResumes)
+            GestureDetector(
+              onTap: () {
+                Navigator.pop(context);
+                onUploadTap?.call();
+              },
+              child: CustomPaint(
+                painter: _DashedBorderPainter(
+                  color: AppColors.primary.withValues(alpha: 0.4),
+                  borderRadius: 14,
+                  dashWidth: 6,
+                  dashGap: 4,
+                ),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 28),
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.08),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.cloud_upload_outlined,
+                          color: AppColors.primary,
+                          size: 26,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      const Text(
+                        'Tap to upload a resume',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'PDF format recommended · ${maxResumes - resumes.length} slots remaining',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<bool?> _showDeleteDialog(BuildContext context, String fileName) {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 4,
+        backgroundColor: Colors.white,
+        contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        title: Row(
+          children: [
+            Icon(
+              Icons.delete_outline_rounded,
+              color: Colors.red.shade600,
+              size: 24,
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              'Delete Resume',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Are you sure you want to delete "$fileName"?',
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'This action cannot be undone.',
+              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            ),
+          ],
+        ),
+        actions: [
+          OutlinedButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: AppColors.primary, width: 1.5),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade600,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
+            child: const Text(
+              'Delete',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _DashedBorderPainter extends CustomPainter {
   final Color color;
   final double borderRadius;
@@ -624,12 +638,10 @@ class _DashedBorderPainter extends CustomPainter {
       ..color = color
       ..strokeWidth = strokeWidth
       ..style = PaintingStyle.stroke;
-
     final rrect = RRect.fromRectAndRadius(
       Rect.fromLTWH(0, 0, size.width, size.height),
       Radius.circular(borderRadius),
     );
-
     final path = Path()..addRRect(rrect);
     final dashedPath = _dashPath(path, dashWidth: dashWidth, dashGap: dashGap);
     canvas.drawPath(dashedPath, paint);

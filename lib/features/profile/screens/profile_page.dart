@@ -1,9 +1,13 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:nearwork/core/constants/app_colors.dart';
+import 'package:nearwork/core/models/resume_item.dart';
 import 'package:nearwork/core/services/app_share_service.dart';
 import 'package:nearwork/features/auth/providers/auth_provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:package_info_plus/package_info_plus.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:nearwork/features/profile/providers/profile_provider.dart';
 import 'package:nearwork/features/profile/screens/faq_page.dart';
 import 'package:nearwork/features/profile/widgets/cv_section_widget.dart';
 import 'package:nearwork/features/profile/widgets/logout_dialog.dart';
@@ -36,7 +40,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _handleShareApp() async {
     try {
       await AppShareService.shareApp();
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -48,9 +52,24 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  Future<void> _handleResumeUpload(String uid) async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+    );
+    if (result == null || result.files.single.path == null) return;
+    if (mounted) {
+      context.read<ProfileProvider>().uploadResume(
+        uid,
+        File(result.files.single.path!),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
+    final profileProvider = context.watch<ProfileProvider>();
     final user = authProvider.user;
 
     if (user == null) {
@@ -101,38 +120,48 @@ class _ProfilePageState extends State<ProfilePage> {
             final username = userData['username'] as String? ?? 'User';
             final email = userData['email'] as String? ?? 'No email';
             final photoURL = userData['photoURL'] as String? ?? '';
+            final about = userData['about'] as String? ?? '';
+            final location = userData['location'] as String? ?? '';
+            final bannerURL = userData['bannerURL'] as String? ?? '';
 
             return SingleChildScrollView(
               child: Column(
                 children: [
-                  // Profile Section
                   ProfileSectionWidget(
+                    uid: user.uid,
                     displayName: username,
                     email: email,
                     photoURL: photoURL.isNotEmpty ? photoURL : null,
-                    onEditTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Edit profile coming soon!'),
-                          duration: Duration(seconds: 2),
-                        ),
+                    bannerURL: bannerURL.isNotEmpty ? bannerURL : null,
+                    about: about,
+                    location: location,
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  StreamBuilder<List<ResumeItem>>(
+                    stream: profileProvider.resumesStream(user.uid),
+                    builder: (context, resumeSnap) {
+                      final resumes = resumeSnap.data ?? [];
+                      return CvSectionWidget(
+                        resumes: resumes,
+                        resumesStream: profileProvider.resumesStream(user.uid),
+                        isUploading: profileProvider.isUploadingResume,
+                        onUploadTap: () => _handleResumeUpload(user.uid),
+                        onDeleteResume: (id) =>
+                            profileProvider.deleteResume(user.uid, id),
+                        onSetDefault: (id) =>
+                            profileProvider.setDefaultResume(user.uid, id),
                       );
                     },
                   ),
 
                   const SizedBox(height: 12),
 
-                  // CV Section
-                  const CvSectionWidget(),
+                  const SavedJobsSectionWidget(),
 
                   const SizedBox(height: 12),
 
-                  // Saved Jobs Section
-                  SavedJobsSectionWidget(),
-
-                  const SizedBox(height: 12),
-
-                  // More Section
                   MoreSectionWidget(
                     onFaqTap: () => Navigator.push(
                       context,
@@ -149,34 +178,22 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                     onShareAppTap: _handleShareApp,
                     onSignOutTap: () async {
-                      final bool? shouldLogout = await LogoutDialog.show(
-                        context,
-                      );
-                      if (shouldLogout == true) {
-                        if (mounted) {
-                          await authProvider.signOut();
-                        }
+                      final shouldLogout = await LogoutDialog.show(context);
+                      if (shouldLogout == true && mounted) {
+                        await authProvider.signOut();
                       }
                     },
                   ),
 
-                  // Version
-                  FutureBuilder<PackageInfo>(
-                    future: PackageInfo.fromPlatform(),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData) return const SizedBox.shrink();
-                      final info = snapshot.data!;
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 24),
-                        child: Text(
-                          'Version ${info.version} (${info.buildNumber})',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade400,
-                          ),
-                        ),
-                      );
-                    },
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 24),
+                    child: Text(
+                      'Version 1.0.0',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade400,
+                      ),
+                    ),
                   ),
                 ],
               ),
