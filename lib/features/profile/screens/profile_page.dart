@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:nearwork/core/constants/app_colors.dart';
-import 'package:nearwork/core/models/resume_item.dart';
+import 'package:nearwork/features/profile/models/resume_item.dart';
 import 'package:nearwork/core/services/app_share_service.dart';
 import 'package:nearwork/features/auth/providers/auth_provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';

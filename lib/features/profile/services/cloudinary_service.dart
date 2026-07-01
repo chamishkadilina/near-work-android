@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
-import 'package:nearwork/core/constants/cloudinary_config.dart';
+import 'package:nearwork/features/profile/services/cloudinary_config.dart';
 
 class CloudinaryUploadResult {
   final String secureUrl;
@@ -19,8 +19,10 @@ class CloudinaryService {
     required File file,
     required String folder,
   }) async {
-    final request =
-        http.MultipartRequest('POST', Uri.parse(CloudinaryConfig.uploadUrl));
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse(CloudinaryConfig.uploadUrl),
+    );
 
     request.fields['upload_preset'] = CloudinaryConfig.uploadPreset;
     request.fields['folder'] = folder;

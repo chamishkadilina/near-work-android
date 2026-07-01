@@ -1,9 +1,9 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:nearwork/core/models/resume_item.dart';
-import 'package:nearwork/core/services/cloudinary_service.dart';
-import 'package:nearwork/core/services/profile_service.dart';
+import 'package:nearwork/features/profile/models/resume_item.dart';
+import 'package:nearwork/features/profile/services/cloudinary_service.dart';
+import 'package:nearwork/features/profile/services/profile_service.dart';
 
 class ProfileProvider extends ChangeNotifier {
   final CloudinaryService _cloudinary = CloudinaryService();

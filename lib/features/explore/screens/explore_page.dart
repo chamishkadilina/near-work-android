@@ -3,7 +3,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 import 'package:nearwork/core/constants/app_colors.dart';
-import 'package:nearwork/core/models/job.dart';
+import 'package:nearwork/features/post_job/models/job.dart';
 import 'package:nearwork/features/explore/providers/job_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 

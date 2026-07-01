@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:nearwork/core/models/job.dart';
-import 'package:nearwork/core/services/job_service.dart';
+import 'package:nearwork/features/post_job/models/job.dart';
+import 'package:nearwork/features/post_job/services/job_service.dart';
 
 class JobProvider extends ChangeNotifier {
   final JobService _jobService = JobService();
