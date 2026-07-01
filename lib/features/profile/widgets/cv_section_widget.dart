@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:nearwork/core/constants/app_colors.dart';
-import 'package:nearwork/core/models/resume_item.dart';
+import 'package:nearwork/features/profile/models/resume_item.dart';
 
 class CvSectionWidget extends StatelessWidget {
   final List<ResumeItem> resumes;
@@ -225,7 +225,7 @@ class CvSectionWidget extends StatelessWidget {
         const Icon(
           Icons.add_circle_outline_rounded,
           color: AppColors.primary,
-          size: 22,
+          size: 32,
         ),
       ],
     );

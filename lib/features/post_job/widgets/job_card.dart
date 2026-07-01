@@ -1,136 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:nearwork/core/constants/app_colors.dart';
+import 'package:nearwork/features/post_job/models/job.dart';
 
-// ── Dummy job model ────────────────────────────────────────────────────────────
-class JobModel {
-  final String id;
-  final String title;
-  final String employer;
-  final String category;
-  final String type; // Full Time / Part Time / Contract
-  final String location;
-  final String salaryMin;
-  final String salaryMax;
-  final bool negotiable;
-  final String education;
-  final String experience;
-  final String description;
-  final String postedAgo;
-  final String state; // 'active' | 'pending' | 'closed'
-  final int viewCount;
-
-  const JobModel({
-    required this.id,
-    required this.title,
-    required this.employer,
-    required this.category,
-    required this.type,
-    required this.location,
-    required this.salaryMin,
-    required this.salaryMax,
-    this.negotiable = false,
-    required this.education,
-    required this.experience,
-    required this.description,
-    required this.postedAgo,
-    this.state = 'active',
-    this.viewCount = 0,
-  });
-}
-
-// ── Dummy data ─────────────────────────────────────────────────────────────────
-final List<JobModel> dummyActiveJobs = [
-  JobModel(
-    id: 'j1',
-    title: 'Senior Flutter Developer',
-    employer: 'TechCore Solutions',
-    category: 'IT & Technology',
-    type: 'Full Time',
-    location: 'Colombo',
-    salaryMin: '150,000',
-    salaryMax: '200,000',
-    education: 'Degree',
-    experience: '3 – 5 Years',
-    description:
-        'We are looking for an experienced Flutter developer to join our growing mobile team. You will work on consumer-facing apps used by thousands of Sri Lankans daily.\n\n'
-        '• Build and maintain cross-platform mobile apps\n'
-        '• Collaborate with UI/UX designers and backend engineers\n'
-        '• Write clean, testable code with proper documentation\n'
-        '• Participate in code reviews and architecture decisions',
-    postedAgo: '2 days ago',
-    state: 'active',
-    viewCount: 312,
-  ),
-  JobModel(
-    id: 'j2',
-    title: 'Delivery Rider',
-    employer: 'QuickMove Logistics',
-    category: 'Driving & Logistics',
-    type: 'Full Time',
-    location: 'Gampaha',
-    salaryMin: '55,000',
-    salaryMax: '75,000',
-    negotiable: true,
-    education: 'No Requirement',
-    experience: 'No Experience',
-    description:
-        'Join our fast-growing logistics team as a delivery rider. Valid motorcycle licence required.\n\n'
-        '• Daily parcel deliveries across Gampaha district\n'
-        '• Fuel allowance and OT pay provided\n'
-        '• Flexible shifts available',
-    postedAgo: '5 days ago',
-    state: 'active',
-    viewCount: 87,
-  ),
-];
-
-final List<JobModel> dummyPendingJobs = [
-  JobModel(
-    id: 'j3',
-    title: 'Retail Store Assistant',
-    employer: 'FashionHub Lanka',
-    category: 'Retail & Sales',
-    type: 'Full Time',
-    location: 'Kandy',
-    salaryMin: '45,000',
-    salaryMax: '60,000',
-    education: 'Ordinary Level',
-    experience: 'No Experience',
-    description:
-        'We are expanding our Kandy outlet and need enthusiastic retail assistants.\n\n'
-        '• Assist customers and maintain store displays\n'
-        '• Handle POS transactions\n'
-        '• Maintain stock and cleanliness',
-    postedAgo: '1 day ago',
-    state: 'pending',
-    viewCount: 0,
-  ),
-];
-
-final List<JobModel> dummyClosedJobs = [
-  JobModel(
-    id: 'j4',
-    title: 'Hotel Receptionist',
-    employer: 'Serenity Hotels & Resorts',
-    category: 'Hospitality',
-    type: 'Full Time',
-    location: 'Negombo',
-    salaryMin: '65,000',
-    salaryMax: '85,000',
-    education: 'Advanced Level',
-    experience: '1 – 2 Years',
-    description:
-        'Looking for a professional and well-presented receptionist for our beachfront property.\n\n'
-        '• Manage check-in / check-out and reservations\n'
-        '• Respond to guest queries in English and Sinhala\n'
-        '• Coordinate with housekeeping and F&B teams',
-    postedAgo: '3 weeks ago',
-    state: 'closed',
-    viewCount: 541,
-  ),
-];
-
-// ── View count helper ──────────────────────────────────────────────────────────
 String _formatViewCount(int v) {
   if (v < 1000) return v.toString();
   if (v < 1000000) {
@@ -139,9 +10,8 @@ String _formatViewCount(int v) {
   return '${(v / 1000000).toStringAsFixed(1).replaceAll('.0', '')}M';
 }
 
-// ── JobCard widget ─────────────────────────────────────────────────────────────
 class JobCard extends StatefulWidget {
-  final JobModel job;
+  final Job job;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
   final VoidCallback? onViewOnMap;
@@ -183,18 +53,16 @@ class _JobCardState extends State<JobCard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Header ────────────────────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Company icon
                     Container(
                       width: 52,
                       height: 52,
                       decoration: BoxDecoration(
-                        color: _primaryColor.withOpacity(0.1),
+                        color: _primaryColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Icon(
@@ -204,7 +72,6 @@ class _JobCardState extends State<JobCard> {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    // Title + employer
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -233,7 +100,6 @@ class _JobCardState extends State<JobCard> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    // View count
                     if (job.state == 'active')
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -241,10 +107,10 @@ class _JobCardState extends State<JobCard> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.08),
+                          color: AppColors.primary.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: AppColors.primary.withOpacity(0.2),
+                            color: AppColors.primary.withValues(alpha: 0.2),
                             width: 0.5,
                           ),
                         ),
@@ -254,14 +120,14 @@ class _JobCardState extends State<JobCard> {
                             Icon(
                               Icons.visibility,
                               size: 12,
-                              color: AppColors.primary.withOpacity(0.8),
+                              color: AppColors.primary.withValues(alpha: 0.8),
                             ),
                             const SizedBox(width: 4),
                             Text(
                               _formatViewCount(job.viewCount),
                               style: TextStyle(
                                 fontSize: 11,
-                                color: AppColors.primary.withOpacity(0.9),
+                                color: AppColors.primary.withValues(alpha: 0.9),
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -274,7 +140,6 @@ class _JobCardState extends State<JobCard> {
 
               const SizedBox(height: 12),
 
-              // ── Chips row ─────────────────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 child: Wrap(
@@ -290,22 +155,23 @@ class _JobCardState extends State<JobCard> {
 
               const SizedBox(height: 12),
 
-              // ── Salary + posted ────────────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      job.negotiable
-                          ? 'Rs. ${job.salaryMin} – ${job.salaryMax} (Negotiable)'
-                          : 'Rs. ${job.salaryMin} – ${job.salaryMax}',
-                      style: TextStyle(
-                        color: _isGrayedOut
-                            ? Colors.grey.shade500
-                            : AppColors.primary,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
+                    Flexible(
+                      child: Text(
+                        job.negotiable
+                            ? '${job.formattedSalary} (Negotiable)'
+                            : job.formattedSalary,
+                        style: TextStyle(
+                          color: _isGrayedOut
+                              ? Colors.grey.shade500
+                              : AppColors.primary,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
                       ),
                     ),
                     Text(
@@ -321,7 +187,6 @@ class _JobCardState extends State<JobCard> {
 
               const SizedBox(height: 12),
 
-              // ── Show / Hide Details toggle ─────────────────────────────────
               GestureDetector(
                 onTap: () => setState(() => _expanded = !_expanded),
                 child: Padding(
@@ -348,7 +213,6 @@ class _JobCardState extends State<JobCard> {
                 ),
               ),
 
-              // ── Expandable details ────────────────────────────────────────
               AnimatedCrossFade(
                 duration: const Duration(milliseconds: 250),
                 crossFadeState: _expanded
@@ -397,10 +261,8 @@ class _JobCardState extends State<JobCard> {
                 secondChild: const SizedBox(height: 12),
               ),
 
-              // ── Divider ────────────────────────────────────────────────────
               Divider(height: 1, thickness: 1, color: Colors.grey.shade100),
 
-              // ── Action buttons ────────────────────────────────────────────
               Row(
                 children: [
                   _actionBtn(
@@ -436,19 +298,10 @@ class _JobCardState extends State<JobCard> {
           ),
         ),
 
-        // ── Gray overlay for non-active ───────────────────────────────────
-        if (_isGrayedOut)
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.grey.withOpacity(0.25),
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
       ],
     );
   }
+
 
   Widget _chip(IconData icon, String label) {
     return Container(
