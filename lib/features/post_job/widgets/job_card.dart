@@ -65,7 +65,7 @@ class _JobCardState extends State<JobCard> {
                               job.imageUrl,
                               width: 64,
                               height: 64,
-                              fit: BoxFit.cover,
+                              fit: BoxFit.contain,
                               errorBuilder: (_, __, e) => _imageFallback(),
                             )
                           : _imageFallback(),
@@ -161,9 +161,7 @@ class _JobCardState extends State<JobCard> {
                   children: [
                     Flexible(
                       child: Text(
-                        job.negotiable
-                            ? '${job.formattedSalary} (Negotiable)'
-                            : job.formattedSalary,
+                        job.formattedSalary,
                         style: TextStyle(
                           color: _isGrayedOut
                               ? Colors.grey.shade500

@@ -9,7 +9,7 @@ class Job {
   final String location;
   final double salaryMin;
   final double salaryMax;
-  final bool negotiable;
+  final String salaryType; // 'fixed' | 'range' | 'negotiable'
   final String education;
   final String experience;
   final String description;
@@ -18,8 +18,9 @@ class Job {
   final String phone;
   final String whatsApp;
   final String imageUrl;
-  final bool verified;
   final String postedBy;
+  final String postedByName;
+  final String postedByEmail;
   final DateTime createdAt;
   final String state;
   final int viewCount;
@@ -33,7 +34,7 @@ class Job {
     required this.location,
     required this.salaryMin,
     required this.salaryMax,
-    this.negotiable = false,
+    this.salaryType = 'fixed',
     required this.education,
     required this.experience,
     required this.description,
@@ -42,8 +43,9 @@ class Job {
     this.phone = '',
     this.whatsApp = '',
     this.imageUrl = '',
-    this.verified = false,
     this.postedBy = '',
+    this.postedByName = '',
+    this.postedByEmail = '',
     required this.createdAt,
     this.state = 'active',
     this.viewCount = 0,
@@ -60,7 +62,7 @@ class Job {
       location: data['location'] ?? '',
       salaryMin: (data['salaryMin'] ?? 0).toDouble(),
       salaryMax: (data['salaryMax'] ?? 0).toDouble(),
-      negotiable: data['negotiable'] ?? false,
+      salaryType: data['salaryType'] ?? 'fixed',
       education: data['education'] ?? '',
       experience: data['experience'] ?? '',
       description: data['description'] ?? '',
@@ -69,8 +71,9 @@ class Job {
       phone: data['phone'] ?? '',
       whatsApp: data['whatsApp'] ?? '',
       imageUrl: data['imageUrl'] ?? '',
-      verified: data['verified'] ?? false,
       postedBy: data['postedBy'] ?? '',
+      postedByName: data['postedByName'] ?? '',
+      postedByEmail: data['postedByEmail'] ?? '',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       state: data['state'] ?? 'active',
       viewCount: data['viewCount'] ?? 0,
@@ -86,7 +89,7 @@ class Job {
       'location': location,
       'salaryMin': salaryMin,
       'salaryMax': salaryMax,
-      'negotiable': negotiable,
+      'salaryType': salaryType,
       'education': education,
       'experience': experience,
       'description': description,
@@ -95,8 +98,9 @@ class Job {
       'phone': phone,
       'whatsApp': whatsApp,
       'imageUrl': imageUrl,
-      'verified': verified,
       'postedBy': postedBy,
+      'postedByName': postedByName,
+      'postedByEmail': postedByEmail,
       'createdAt': FieldValue.serverTimestamp(),
       'state': state,
       'viewCount': viewCount,
@@ -104,10 +108,14 @@ class Job {
   }
 
   String get formattedSalary {
-    if (salaryMin == salaryMax) {
-      return 'Rs ${_formatNumber(salaryMin.toInt())}';
+    switch (salaryType) {
+      case 'range':
+        return 'Rs ${_formatNumber(salaryMin.toInt())} – ${_formatNumber(salaryMax.toInt())}';
+      case 'negotiable':
+        return 'Negotiable';
+      default:
+        return 'Rs ${_formatNumber(salaryMin.toInt())}';
     }
-    return 'Rs ${_formatNumber(salaryMin.toInt())} – ${_formatNumber(salaryMax.toInt())}';
   }
 
   String get postedAgo {

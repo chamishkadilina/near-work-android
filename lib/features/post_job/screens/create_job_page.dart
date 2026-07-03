@@ -39,7 +39,7 @@ class _CreateJobPageState extends State<CreateJobPage> {
   String _type = 'Full Time';
   String _education = 'Open to All';
   String _experience = 'Entry Level';
-  bool _salaryIsRange = false;
+  String _salaryType = 'fixed'; // 'fixed' | 'range' | 'negotiable'
   bool _whatsappSameAsPhone = false;
   bool _categoryExpanded = false;
   bool _educationExpanded = false;
@@ -315,11 +315,14 @@ class _CreateJobPageState extends State<CreateJobPage> {
 
       final double salaryMin;
       final double salaryMax;
-      if (_salaryIsRange) {
+      if (_salaryType == 'range') {
         salaryMin =
             double.tryParse(_salaryMinCtrl.text.replaceAll(',', '')) ?? 0;
         salaryMax =
             double.tryParse(_salaryMaxCtrl.text.replaceAll(',', '')) ?? 0;
+      } else if (_salaryType == 'negotiable') {
+        salaryMin = 0;
+        salaryMax = 0;
       } else {
         final amount =
             double.tryParse(_salaryCtrl.text.replaceAll(',', '')) ?? 0;
@@ -340,6 +343,7 @@ class _CreateJobPageState extends State<CreateJobPage> {
         location: _locationCtrl.text.trim(),
         salaryMin: salaryMin,
         salaryMax: salaryMax,
+        salaryType: _salaryType,
         education: _education,
         experience: _experience,
         description: _descriptionCtrl.text.trim(),
@@ -349,6 +353,8 @@ class _CreateJobPageState extends State<CreateJobPage> {
         whatsApp: whatsAppNum,
         imageUrl: imageUrl,
         postedBy: user.uid,
+        postedByName: user.displayName ?? '',
+        postedByEmail: user.email ?? '',
         state: 'pending',
         createdAt: DateTime.now(),
       );
@@ -838,7 +844,7 @@ class _CreateJobPageState extends State<CreateJobPage> {
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: SizedBox.expand(
-              child: Image.file(_jobImage!, fit: BoxFit.cover),
+              child: Image.file(_jobImage!, fit: BoxFit.contain),
             ),
           ),
           Positioned(
@@ -911,7 +917,7 @@ class _CreateJobPageState extends State<CreateJobPage> {
           const SizedBox(height: 16),
 
           Text(
-            'Education Required',
+            'Education',
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -1045,7 +1051,7 @@ class _CreateJobPageState extends State<CreateJobPage> {
           const SizedBox(height: 16),
 
           Text(
-            'Experience Required',
+            'Experience',
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -1252,66 +1258,50 @@ class _CreateJobPageState extends State<CreateJobPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Text(
+          'Salary (LKR / month)',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey.shade600,
+          ),
+        ),
+        const SizedBox(height: 6),
         Row(
           children: [
-            Text(
-              'Salary (LKR / month)',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey.shade600,
-              ),
-            ),
-            const Spacer(),
-            Container(
-              height: 28,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.grey.shade200),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (final t in ['Fixed', 'Range'])
-                    GestureDetector(
-                      onTap: () =>
-                          setState(() => _salaryIsRange = t == 'Range'),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 180),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color:
-                              ((t == 'Fixed' && !_salaryIsRange) ||
-                                  (t == 'Range' && _salaryIsRange))
+            for (final t in ['Fixed', 'Range', 'Negotiable'])
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _salaryType = t.toLowerCase()),
+                  behavior: HitTestBehavior.opaque,
+                  child: Row(
+                    children: [
+                      Radio<String>(
+                        value: t.toLowerCase(),
+                        groupValue: _salaryType,
+                        onChanged: (v) => setState(() => _salaryType = v!),
+                        activeColor: AppColors.primary,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      Text(
+                        t,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: _salaryType == t.toLowerCase()
                               ? AppColors.primary
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          t,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color:
-                                ((t == 'Fixed' && !_salaryIsRange) ||
-                                    (t == 'Range' && _salaryIsRange))
-                                ? Colors.white
-                                : Colors.grey.shade500,
-                          ),
+                              : Colors.grey.shade600,
                         ),
                       ),
-                    ),
-                ],
+                    ],
+                  ),
+                ),
               ),
-            ),
           ],
         ),
         const SizedBox(height: 10),
-        if (!_salaryIsRange)
+        if (_salaryType == 'fixed')
           TextFormField(
             controller: _salaryCtrl,
             keyboardType: TextInputType.number,
@@ -1320,7 +1310,7 @@ class _CreateJobPageState extends State<CreateJobPage> {
                 (v == null || v.trim().isEmpty) ? 'Required' : null,
             decoration: salaryField('e.g. 75,000'),
           )
-        else
+        else if (_salaryType == 'range')
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1356,6 +1346,29 @@ class _CreateJobPageState extends State<CreateJobPage> {
                 ),
               ),
             ],
+          )
+        else
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.handshake_outlined,
+                  size: 18,
+                  color: Colors.grey.shade400,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Salary will be discussed during interview',
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+                ),
+              ],
+            ),
           ),
       ],
     );
