@@ -58,18 +58,17 @@ class _JobCardState extends State<JobCard> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 52,
-                      height: 52,
-                      decoration: BoxDecoration(
-                        color: _primaryColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        Icons.business_rounded,
-                        color: _primaryColor,
-                        size: 26,
-                      ),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: job.imageUrl.isNotEmpty
+                          ? Image.network(
+                              job.imageUrl,
+                              width: 64,
+                              height: 64,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, e) => _imageFallback(),
+                            )
+                          : _imageFallback(),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -297,11 +296,18 @@ class _JobCardState extends State<JobCard> {
             ],
           ),
         ),
-
       ],
     );
   }
 
+  Widget _imageFallback() {
+    return Container(
+      width: 52,
+      height: 52,
+      color: _primaryColor.withValues(alpha: 0.1),
+      child: Icon(Icons.business_rounded, color: _primaryColor, size: 26),
+    );
+  }
 
   Widget _chip(IconData icon, String label) {
     return Container(
