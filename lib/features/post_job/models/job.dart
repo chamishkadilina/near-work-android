@@ -16,6 +16,8 @@ class Job {
   final double latitude;
   final double longitude;
   final String phone;
+  final String whatsApp;
+  final String imageUrl;
   final bool verified;
   final String postedBy;
   final DateTime createdAt;
@@ -38,6 +40,8 @@ class Job {
     required this.latitude,
     required this.longitude,
     this.phone = '',
+    this.whatsApp = '',
+    this.imageUrl = '',
     this.verified = false,
     this.postedBy = '',
     required this.createdAt,
@@ -63,6 +67,8 @@ class Job {
       latitude: (data['latitude'] ?? 0).toDouble(),
       longitude: (data['longitude'] ?? 0).toDouble(),
       phone: data['phone'] ?? '',
+      whatsApp: data['whatsApp'] ?? '',
+      imageUrl: data['imageUrl'] ?? '',
       verified: data['verified'] ?? false,
       postedBy: data['postedBy'] ?? '',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
@@ -87,6 +93,8 @@ class Job {
       'latitude': latitude,
       'longitude': longitude,
       'phone': phone,
+      'whatsApp': whatsApp,
+      'imageUrl': imageUrl,
       'verified': verified,
       'postedBy': postedBy,
       'createdAt': FieldValue.serverTimestamp(),
@@ -96,9 +104,10 @@ class Job {
   }
 
   String get formattedSalary {
-    final min = _formatNumber(salaryMin.toInt());
-    final max = _formatNumber(salaryMax.toInt());
-    return 'Rs $min – $max';
+    if (salaryMin == salaryMax) {
+      return 'Rs ${_formatNumber(salaryMin.toInt())}';
+    }
+    return 'Rs ${_formatNumber(salaryMin.toInt())} – ${_formatNumber(salaryMax.toInt())}';
   }
 
   String get postedAgo {
