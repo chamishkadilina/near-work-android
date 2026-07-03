@@ -37,16 +37,20 @@ class _PostJobPageState extends State<PostJobPage>
     final provider = context.read<PostJobProvider>();
     const states = ['active', 'pending', 'closed'];
     for (int i = 0; i < 3; i++) {
-      _subs.add(provider.userJobsByState(uid, states[i]).listen((jobs) {
-        if (!mounted) return;
-        setState(() => _counts[i] = jobs.length);
-        _receivedCount++;
-        if (!_initialTabSet && _receivedCount >= 3) {
-          _initialTabSet = true;
-          final maxIndex = _counts.indexOf(_counts.reduce((a, b) => a > b ? a : b));
-          if (_counts[maxIndex] > 0) _tabController.animateTo(maxIndex);
-        }
-      }));
+      _subs.add(
+        provider.userJobsByState(uid, states[i]).listen((jobs) {
+          if (!mounted) return;
+          setState(() => _counts[i] = jobs.length);
+          _receivedCount++;
+          if (!_initialTabSet && _receivedCount >= 3) {
+            _initialTabSet = true;
+            final maxIndex = _counts.indexOf(
+              _counts.reduce((a, b) => a > b ? a : b),
+            );
+            if (_counts[maxIndex] > 0) _tabController.animateTo(maxIndex);
+          }
+        }),
+      );
     }
   }
 
@@ -122,17 +126,16 @@ class _PostJobPageState extends State<PostJobPage>
           );
         }
         return ListView.builder(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16)
-              .copyWith(bottom: 100),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 16,
+          ).copyWith(bottom: 100),
           itemCount: jobs.length,
           itemBuilder: (context, index) {
             final job = jobs[index];
             return Padding(
               padding: const EdgeInsets.only(bottom: 14),
-              child: JobCard(
-                job: job,
-                onDelete: () => _showDeleteDialog(job),
-              ),
+              child: JobCard(job: job, onDelete: () => _showDeleteDialog(job)),
             );
           },
         );
@@ -148,7 +151,11 @@ class _PostJobPageState extends State<PostJobPage>
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
-            Icon(Icons.delete_forever_rounded, color: Colors.redAccent, size: 24),
+            Icon(
+              Icons.delete_forever_rounded,
+              color: Colors.redAccent,
+              size: 24,
+            ),
             const SizedBox(width: 10),
             const Text(
               'Delete Job',
@@ -295,9 +302,18 @@ class _PostJobPageState extends State<PostJobPage>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _infoTip(Icons.refresh, 'Update listings regularly to stay visible to job seekers.'),
-            _infoTip(Icons.description_outlined, 'Clear job descriptions get more quality applicants.'),
-            _infoTip(Icons.location_on_outlined, 'Accurate location pins help candidates find you easily.'),
+            _infoTip(
+              Icons.refresh,
+              'Update listings regularly to stay visible to job seekers.',
+            ),
+            _infoTip(
+              Icons.description_outlined,
+              'Clear job descriptions get more quality applicants.',
+            ),
+            _infoTip(
+              Icons.location_on_outlined,
+              'Accurate location pins help candidates find you easily.',
+            ),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(12),
@@ -307,7 +323,11 @@ class _PostJobPageState extends State<PostJobPage>
               ),
               child: Row(
                 children: [
-                  Icon(Icons.lightbulb_outline, color: AppColors.primary, size: 18),
+                  Icon(
+                    Icons.lightbulb_outline,
+                    color: AppColors.primary,
+                    size: 18,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -331,7 +351,9 @@ class _PostJobPageState extends State<PostJobPage>
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
               elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             ),
             child: const Text('Got it'),
@@ -352,7 +374,10 @@ class _PostJobPageState extends State<PostJobPage>
           Icon(icon, size: 15, color: AppColors.primary),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(text, style: const TextStyle(fontSize: 13, color: Colors.black87)),
+            child: Text(
+              text,
+              style: const TextStyle(fontSize: 13, color: Colors.black87),
+            ),
           ),
         ],
       ),
