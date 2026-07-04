@@ -153,7 +153,7 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
                   ),
                 ),
 
-                // Current location button — bottom right
+                // Current location button - bottom right
                 Positioned(
                   right: 16,
                   bottom: 16,

@@ -34,7 +34,7 @@ class _NavBarState extends State<NavBar> {
           ExplorePage(key: _exploreKey),
           const MessagesPage(),
           PostJobPage(onViewOnMap: _viewJobOnExplore),
-          const ProfilePage(),
+          ProfilePage(onViewOnMap: _viewJobOnExplore),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
