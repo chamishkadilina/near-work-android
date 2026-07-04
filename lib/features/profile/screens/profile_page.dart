@@ -13,12 +13,15 @@ import 'package:nearwork/features/profile/widgets/cv_section_widget.dart';
 import 'package:nearwork/features/profile/widgets/logout_dialog.dart';
 import 'package:nearwork/features/profile/widgets/more_section_widget.dart';
 import 'package:nearwork/features/profile/widgets/profile_section_widget.dart';
+import 'package:nearwork/features/post_job/models/job.dart';
 import 'package:nearwork/features/profile/widgets/saved_jobs_section_widget.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ProfilePage extends StatefulWidget {
-  const ProfilePage({super.key});
+  final void Function(Job)? onViewOnMap;
+
+  const ProfilePage({super.key, this.onViewOnMap});
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -158,7 +161,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
                   const SizedBox(height: 12),
 
-                  const SavedJobsSectionWidget(),
+                  SavedJobsSectionWidget(onJobTap: widget.onViewOnMap),
 
                   const SizedBox(height: 12),
 

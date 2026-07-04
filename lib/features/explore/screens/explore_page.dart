@@ -3,7 +3,10 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 import 'package:nearwork/core/constants/app_colors.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:nearwork/core/utils/share_utils.dart';
 import 'package:nearwork/features/post_job/models/job.dart';
+import 'package:nearwork/features/post_job/services/job_service.dart';
 import 'package:nearwork/features/explore/providers/job_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -19,6 +22,7 @@ class ExplorePageState extends State<ExplorePage>
   GoogleMapController? _controller;
   GoogleMapController? _filterMapController;
   BitmapDescriptor? _customIcon;
+  final _jobService = JobService();
 
   // ── Filter panel animation ───────────────────────────────────────────────────
   bool _filterOpen = false;
@@ -233,6 +237,13 @@ class ExplorePageState extends State<ExplorePage>
     _cancelFilter();
   }
 
+  String _fmtViews(int v) {
+    if (v < 1000) return '$v';
+    if (v < 1000000)
+      return '${(v / 1000).toStringAsFixed(1).replaceAll('.0', '')}K';
+    return '${(v / 1000000).toStringAsFixed(1).replaceAll('.0', '')}M';
+  }
+
   String _formatSalary(double v) {
     final formatted = v.toInt().toString().replaceAllMapped(
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
@@ -273,19 +284,17 @@ class ExplorePageState extends State<ExplorePage>
     final markers = _buildMarkers(jobProvider.jobs);
 
     return Scaffold(
-      body: SafeArea(
-        child: Stack(
-          children: [
-            GestureDetector(onTap: _dismissAll, child: _buildMap(markers)),
-            Positioned(
-              top: 16,
-              left: 16,
-              right: 16,
-              child: _buildSearchAndFilter(),
-            ),
-            _buildLocationButton(),
-          ],
-        ),
+      body: Stack(
+        children: [
+          GestureDetector(onTap: _dismissAll, child: _buildMap(markers)),
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 16,
+            left: 16,
+            right: 16,
+            child: _buildSearchAndFilter(),
+          ),
+          _buildLocationButton(),
+        ],
       ),
     );
   }
@@ -366,7 +375,7 @@ class ExplorePageState extends State<ExplorePage>
               ),
             ),
           ),
-          // Clear button — visible only when text exists
+          // Clear button - visible only when text exists
           if (hasText)
             GestureDetector(
               onTap: _clearSearch,
@@ -436,7 +445,7 @@ class ExplorePageState extends State<ExplorePage>
             ),
           )
         else
-          // Results list — max 5 visible, scrollable
+          // Results list - max 5 visible, scrollable
           ConstrainedBox(
             constraints: BoxConstraints(maxHeight: _filterOpen ? 104 : 256),
             child: ListView.separated(
@@ -973,254 +982,312 @@ class ExplorePageState extends State<ExplorePage>
   }
 
   void _showJobBottomSheet(Job job) {
+    _jobService.incrementViewCount(job.id);
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     bool isSaved = false;
+    bool savedLoaded = false;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => StatefulBuilder(
-        builder: (context, setSheetState) => DraggableScrollableSheet(
-          initialChildSize: 0.78,
-          minChildSize: 0.5,
-          maxChildSize: 0.95,
-          builder: (context, scrollController) => Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            child: Column(
-              children: [
-                // Drag handle
-                Padding(
-                  padding: const EdgeInsets.only(top: 10, bottom: 8),
-                  child: Center(
-                    child: Container(
-                      width: 36,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(2),
+        builder: (context, setSheetState) {
+          if (!savedLoaded && uid.isNotEmpty) {
+            savedLoaded = true;
+            _jobService.isJobSaved(uid, job.id).then((saved) {
+              setSheetState(() => isSaved = saved);
+            });
+          }
+          return DraggableScrollableSheet(
+            initialChildSize: 0.78,
+            minChildSize: 0.5,
+            maxChildSize: 0.95,
+            builder: (context, scrollController) => Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: Column(
+                children: [
+                  // Drag handle
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10, bottom: 8),
+                    child: Center(
+                      child: Container(
+                        width: 36,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                       ),
                     ),
                   ),
-                ),
 
-                // Header
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: job.imageUrl.isNotEmpty
-                            ? Image.network(
-                                job.imageUrl,
-                                width: 72,
-                                height: 72,
-                                fit: BoxFit.contain,
-                                errorBuilder: (ctx, e, st) =>
-                                    _sheetImageFallback(),
-                              )
-                            : _sheetImageFallback(),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              job.title,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.black87,
-                                height: 1.3,
-                              ),
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              job.employer,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.grey.shade600,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                Text(
-                                  job.postedAgo,
-                                  style: TextStyle(
-                                    fontSize: 11.5,
-                                    color: Colors.grey.shade500,
-                                  ),
+                  // Header
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: job.imageUrl.isNotEmpty
+                              ? Image.network(
+                                  job.imageUrl,
+                                  width: 72,
+                                  height: 72,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (ctx, e, st) =>
+                                      _sheetImageFallback(),
+                                )
+                              : _sheetImageFallback(),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                job.title,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.black87,
+                                  height: 1.3,
                                 ),
-                                if (job.state == 'active') ...[
-                                  const Spacer(),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 7,
-                                      vertical: 3,
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                job.employer,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.grey.shade600,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Text(
+                                    job.postedAgo,
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      color: Colors.grey.shade500,
                                     ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFE8F5E9),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: const Row(
+                                  ),
+                                  const SizedBox(width: 16),
+                                  StreamBuilder<int>(
+                                    stream: _jobService.streamViewCount(job.id),
+                                    initialData: job.viewCount,
+                                    builder: (context, snapshot) => Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Icon(
-                                          Icons.verified,
+                                          Icons.visibility_outlined,
                                           size: 12,
-                                          color: Color(0xFF2E7D32),
+                                          color: Colors.grey.shade400,
                                         ),
-                                        SizedBox(width: 4),
+                                        const SizedBox(width: 3),
                                         Text(
-                                          'Verified',
+                                          _fmtViews(snapshot.data ?? 0),
                                           style: TextStyle(
                                             fontSize: 11,
-                                            fontWeight: FontWeight.w600,
-                                            color: Color(0xFF2E7D32),
+                                            color: Colors.grey.shade400,
                                           ),
                                         ),
                                       ],
                                     ),
                                   ),
+                                  const Spacer(),
+
+                                  if (job.state == 'active') ...[
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 7,
+                                        vertical: 3,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFE8F5E9),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: const Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.verified,
+                                            size: 12,
+                                            color: Color(0xFF2E7D32),
+                                          ),
+                                          SizedBox(width: 4),
+                                          Text(
+                                            'Verified',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                              color: Color(0xFF2E7D32),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                  const SizedBox(width: 12),
+                                  GestureDetector(
+                                    onTap: () => shareJob(job),
+                                    child: Icon(
+                                      Icons.share_outlined,
+                                      size: 16,
+                                      color: Colors.grey.shade400,
+                                    ),
+                                  ),
                                 ],
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                Divider(height: 1, color: Colors.grey.shade200),
-
-                // Scrollable body
-                Expanded(
-                  child: SingleChildScrollView(
-                    controller: scrollController,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 4),
-                        _infoTableRow('Category', job.category),
-                        _infoTableRow('Job type', job.type),
-                        _infoTableRow('Salary', job.formattedSalary),
-                        _infoTableRow('Education required', job.education),
-                        _infoTableRow('Experience required', job.experience),
-                        if (job.location.isNotEmpty)
-                          _infoTableRow('Location', job.location, isLast: true),
-                        const SizedBox(height: 20),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 16),
-                          child: Text(
-                            'About the role',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.black87,
-                            ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 10),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Text(
-                            job.description,
-                            style: TextStyle(
-                              fontSize: 14,
-                              height: 1.65,
-                              color: Colors.grey.shade700,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 28),
                       ],
                     ),
                   ),
-                ),
 
-                // Footer
-                Container(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    border: Border(
-                      top: BorderSide(color: Colors.grey.shade200),
-                    ),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
+                  Divider(height: 1, color: Colors.grey.shade200),
+
+                  // Scrollable body
+                  Expanded(
+                    child: SingleChildScrollView(
+                      controller: scrollController,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _footerIconBtn(
-                            icon: isSaved
-                                ? Icons.bookmark
-                                : Icons.bookmark_border,
-                            label: 'Save',
-                            color: isSaved ? AppColors.primary : Colors.black54,
-                            onTap: () =>
-                                setSheetState(() => isSaved = !isSaved),
-                          ),
-                          const SizedBox(width: 8),
-                          _footerIconBtn(
-                            icon: Icons.phone_outlined,
-                            label: 'Call',
-                            color: Colors.black54,
-                            onTap: () => _showCallDialog(job),
-                          ),
-                          const SizedBox(width: 8),
-                          _footerIconBtn(
-                            icon: Icons.message_outlined,
-                            label: 'Message',
-                            color: Colors.black54,
-                            onTap: () => _showMessageDialog(job),
-                          ),
-                          const SizedBox(width: 8),
-                          _footerIconBtn(
-                            icon: Icons.directions_outlined,
-                            label: 'Directions',
-                            color: Colors.black54,
-                            onTap: () => _openDirections(job),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () => Navigator.pop(context),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                          const SizedBox(height: 4),
+                          _infoTableRow('Category', job.category),
+                          _infoTableRow('Job type', job.type),
+                          _infoTableRow('Salary', job.formattedSalary),
+                          _infoTableRow('Education required', job.education),
+                          _infoTableRow('Experience required', job.experience),
+                          if (job.location.isNotEmpty)
+                            _infoTableRow(
+                              'Location',
+                              job.location,
+                              isLast: true,
+                            ),
+                          const SizedBox(height: 20),
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 16),
+                            child: Text(
+                              'About the role',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.black87,
+                              ),
                             ),
                           ),
-                          child: const Text(
-                            'Apply Now',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
+                          const SizedBox(height: 10),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Text(
+                              job.description,
+                              style: TextStyle(
+                                fontSize: 14,
+                                height: 1.65,
+                                color: Colors.grey.shade700,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 28),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Footer
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border(
+                        top: BorderSide(color: Colors.grey.shade200),
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: [
+                            _footerIconBtn(
+                              icon: isSaved
+                                  ? Icons.bookmark
+                                  : Icons.bookmark_border,
+                              label: 'Save',
+                              color: isSaved
+                                  ? AppColors.primary
+                                  : Colors.black54,
+                              onTap: () async {
+                                final next = !isSaved;
+                                setSheetState(() => isSaved = next);
+                                if (next) {
+                                  await _jobService.saveJob(uid, job.id);
+                                } else {
+                                  await _jobService.unsaveJob(uid, job.id);
+                                }
+                              },
+                            ),
+                            const SizedBox(width: 8),
+                            _footerIconBtn(
+                              icon: Icons.phone_outlined,
+                              label: 'Call',
+                              color: Colors.black54,
+                              onTap: () => _showCallDialog(job),
+                            ),
+                            const SizedBox(width: 8),
+                            _footerIconBtn(
+                              icon: Icons.message_outlined,
+                              label: 'Message',
+                              color: Colors.black54,
+                              onTap: () => _showMessageDialog(job),
+                            ),
+                            const SizedBox(width: 8),
+                            _footerIconBtn(
+                              icon: Icons.directions_outlined,
+                              label: 'Directions',
+                              color: Colors.black54,
+                              onTap: () => _openDirections(job),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            child: const Text(
+                              'Apply Now',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
@@ -1557,7 +1624,7 @@ class ExplorePageState extends State<ExplorePage>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  _SuggestionTile — highlights the matched portion in the label
+//  _SuggestionTile - highlights the matched portion in the label
 // ─────────────────────────────────────────────────────────────────────────────
 class _SuggestionTile extends StatelessWidget {
   const _SuggestionTile({
@@ -1570,7 +1637,7 @@ class _SuggestionTile extends StatelessWidget {
   final String query;
   final VoidCallback onTap;
 
-  // Deterministic dummy count — stable across rebuilds, unique per keyword
+  // Deterministic dummy count - stable across rebuilds, unique per keyword
   int get _dummyCount {
     const counts = [3, 5, 7, 8, 12, 14, 6, 9, 11, 4];
     return counts[label.length % counts.length];

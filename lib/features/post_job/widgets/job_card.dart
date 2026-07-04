@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:nearwork/core/constants/app_colors.dart';
+import 'package:nearwork/core/utils/share_utils.dart';
 import 'package:nearwork/features/post_job/models/job.dart';
 
 String _formatViewCount(int v) {
@@ -280,7 +281,7 @@ class _JobCardState extends State<JobCard> {
                     icon: Icons.share_outlined,
                     label: 'Share',
                     color: _primaryColor,
-                    onTap: () {},
+                    onTap: () => shareJob(widget.job),
                   ),
                   _vDivider(),
                   _actionBtn(
