@@ -11,10 +11,10 @@ class ExplorePage extends StatefulWidget {
   const ExplorePage({super.key});
 
   @override
-  State<ExplorePage> createState() => _ExplorePageState();
+  State<ExplorePage> createState() => ExplorePageState();
 }
 
-class _ExplorePageState extends State<ExplorePage>
+class ExplorePageState extends State<ExplorePage>
     with SingleTickerProviderStateMixin {
   GoogleMapController? _controller;
   GoogleMapController? _filterMapController;
@@ -963,6 +963,15 @@ class _ExplorePageState extends State<ExplorePage>
   // ─────────────────────────────────────────────────────────────────────────────
   //  Job detail bottom sheet
   // ─────────────────────────────────────────────────────────────────────────────
+  Future<void> showJobSheet(Job job) async {
+    await _controller?.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(target: LatLng(job.latitude, job.longitude), zoom: 15),
+      ),
+    );
+    if (mounted) _showJobBottomSheet(job);
+  }
+
   void _showJobBottomSheet(Job job) {
     bool isSaved = false;
     showModalBottomSheet(
@@ -1010,7 +1019,7 @@ class _ExplorePageState extends State<ExplorePage>
                                 width: 72,
                                 height: 72,
                                 fit: BoxFit.contain,
-                                errorBuilder: (_, __, e) =>
+                                errorBuilder: (ctx, e, st) =>
                                     _sheetImageFallback(),
                               )
                             : _sheetImageFallback(),
@@ -1617,8 +1626,8 @@ class _SuggestionTile extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      splashColor: AppColors.primary.withOpacity(0.06),
-      highlightColor: AppColors.primary.withOpacity(0.04),
+      splashColor: AppColors.primary.withValues(alpha: 0.06),
+      highlightColor: AppColors.primary.withValues(alpha: 0.04),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(

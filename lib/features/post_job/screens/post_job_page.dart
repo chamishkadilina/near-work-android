@@ -10,7 +10,9 @@ import 'package:nearwork/features/post_job/screens/create_job_page.dart';
 import 'package:nearwork/features/post_job/widgets/job_card.dart';
 
 class PostJobPage extends StatefulWidget {
-  const PostJobPage({super.key});
+  final void Function(Job)? onViewOnMap;
+
+  const PostJobPage({super.key, this.onViewOnMap});
 
   @override
   State<PostJobPage> createState() => _PostJobPageState();
@@ -135,7 +137,13 @@ class _PostJobPageState extends State<PostJobPage>
             final job = jobs[index];
             return Padding(
               padding: const EdgeInsets.only(bottom: 14),
-              child: JobCard(job: job, onDelete: () => _showDeleteDialog(job)),
+              child: JobCard(
+                job: job,
+                onDelete: () => _showDeleteDialog(job),
+                onViewOnMap: job.state == 'active'
+                    ? () => widget.onViewOnMap?.call(job)
+                    : null,
+              ),
             );
           },
         );
