@@ -3,6 +3,7 @@ import 'package:nearwork/core/constants/app_colors.dart';
 import 'package:nearwork/features/explore/screens/explore_page.dart';
 import 'package:nearwork/features/messages/screens/messages_page.dart';
 import 'package:nearwork/features/post_job/screens/post_job_page.dart';
+import 'package:nearwork/features/post_job/models/job.dart';
 import 'package:nearwork/features/profile/screens/profile_page.dart';
 
 class NavBar extends StatefulWidget {
@@ -13,26 +14,32 @@ class NavBar extends StatefulWidget {
 }
 
 class _NavBarState extends State<NavBar> {
-  int currentIndex = 0;
+  int _currentIndex = 0;
 
-  final List<Widget> pages = const [
-    ExplorePage(),
-    MessagesPage(),
-    PostJobPage(),
-    ProfilePage(),
-  ];
+  final GlobalKey<ExplorePageState> _exploreKey = GlobalKey<ExplorePageState>();
+
+  void _viewJobOnExplore(Job job) {
+    setState(() => _currentIndex = 0);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _exploreKey.currentState?.showJobSheet(job);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: pages[currentIndex],
+      body: IndexedStack(
+        index: _currentIndex,
+        children: [
+          ExplorePage(key: _exploreKey),
+          const MessagesPage(),
+          PostJobPage(onViewOnMap: _viewJobOnExplore),
+          const ProfilePage(),
+        ],
+      ),
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: currentIndex,
-        onTap: (index) {
-          setState(() {
-            currentIndex = index;
-          });
-        },
+        currentIndex: _currentIndex,
+        onTap: (index) => setState(() => _currentIndex = index),
         type: BottomNavigationBarType.fixed,
         selectedItemColor: AppColors.primary,
         unselectedItemColor: AppColors.textSecondary,
