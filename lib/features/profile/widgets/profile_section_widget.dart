@@ -31,10 +31,7 @@ class ProfileSectionWidget extends StatelessWidget {
 
   String get _capitalizedName => displayName
       .split(' ')
-      .map(
-        (w) =>
-            w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1)}' : '',
-      )
+      .map((w) => w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1)}' : '')
       .join(' ');
 
   void _showEditSheet(BuildContext context) {
@@ -73,7 +70,7 @@ class ProfileSectionWidget extends StatelessWidget {
                     ? BoxDecoration(
                         image: DecorationImage(
                           image: NetworkImage(bannerURL!),
-                          fit: BoxFit.cover,
+                          fit: BoxFit.contain,
                         ),
                       )
                     : const BoxDecoration(
@@ -119,12 +116,13 @@ class ProfileSectionWidget extends StatelessWidget {
                     children: [
                       CircleAvatar(
                         radius: _avatarRadius,
-                        backgroundColor:
-                            AppColors.primary.withValues(alpha: 0.1),
+                        backgroundColor: AppColors.primary.withValues(
+                          alpha: 0.1,
+                        ),
                         backgroundImage:
                             photoURL != null && photoURL!.isNotEmpty
-                                ? NetworkImage(photoURL!)
-                                : null,
+                            ? NetworkImage(photoURL!)
+                            : null,
                         child: photoURL == null || photoURL!.isEmpty
                             ? const Icon(
                                 Icons.person_rounded,
@@ -225,10 +223,7 @@ class ProfileSectionWidget extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text(
                     location,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey.shade500,
-                    ),
+                    style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
                   ),
                 ],
               ],
@@ -311,7 +306,10 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
-        24, 8, 24, MediaQuery.of(context).viewInsets.bottom + 24,
+        24,
+        8,
+        24,
+        MediaQuery.of(context).viewInsets.bottom + 24,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

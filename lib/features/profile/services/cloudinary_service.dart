@@ -18,11 +18,11 @@ class CloudinaryService {
   Future<CloudinaryUploadResult> uploadFile({
     required File file,
     required String folder,
+    String resourceType = 'auto',
   }) async {
-    final request = http.MultipartRequest(
-      'POST',
-      Uri.parse(CloudinaryConfig.uploadUrl),
-    );
+    final uploadUrl =
+        'https://api.cloudinary.com/v1_1/${CloudinaryConfig.cloudName}/$resourceType/upload';
+    final request = http.MultipartRequest('POST', Uri.parse(uploadUrl));
 
     request.fields['upload_preset'] = CloudinaryConfig.uploadPreset;
     request.fields['folder'] = folder;

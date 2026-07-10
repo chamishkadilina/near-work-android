@@ -1,28 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:nearwork/core/constants/app_colors.dart';
-import 'package:nearwork/features/messages/widgets/message_card.dart';
-import 'package:nearwork/features/messages/screens/message_detail_page.dart';
-
-// Dummy message model
-class ConversationModel {
-  final String id;
-  final String senderName;
-  final String senderAvatar;
-  final String messagePreview;
-  final String timestamp;
-  final bool isUnread;
-  final int unreadCount;
-
-  ConversationModel({
-    required this.id,
-    required this.senderName,
-    required this.senderAvatar,
-    required this.messagePreview,
-    required this.timestamp,
-    required this.isUnread,
-    required this.unreadCount,
-  });
-}
+import 'package:nearwork/features/auth/providers/auth_provider.dart';
+import 'package:nearwork/features/messages/models/conversation.dart';
+import 'package:nearwork/features/messages/providers/inbox_provider.dart';
+import 'package:nearwork/features/messages/screens/chat_screen.dart';
+import 'package:nearwork/features/messages/services/inbox_service.dart';
 
 class MessagesPage extends StatefulWidget {
   const MessagesPage({super.key});
@@ -32,246 +15,428 @@ class MessagesPage extends StatefulWidget {
 }
 
 class _MessagesPageState extends State<MessagesPage> {
-  // Dummy data
-  final List<ConversationModel> allConversations = [
-    ConversationModel(
-      id: '1',
-      senderName: 'Chamishka Perera',
-      senderAvatar: 'CP',
-      messagePreview: 'Hey, can you share the job details?',
-      timestamp: '2m ago',
-      isUnread: true,
-      unreadCount: 3,
-    ),
-    ConversationModel(
-      id: '2',
-      senderName: 'Ravi Kumar',
-      senderAvatar: 'RK',
-      messagePreview: 'I\'m interested in the Flutter position...',
-      timestamp: '1h ago',
-      isUnread: true,
-      unreadCount: 1,
-    ),
-    ConversationModel(
-      id: '3',
-      senderName: 'Priya Singh',
-      senderAvatar: 'PS',
-      messagePreview: 'Thanks for the interview opportunity!',
-      timestamp: '3h ago',
-      isUnread: false,
-      unreadCount: 0,
-    ),
-    ConversationModel(
-      id: '4',
-      senderName: 'Amit Patel',
-      senderAvatar: 'AP',
-      messagePreview: 'When can we schedule the meeting?',
-      timestamp: '5h ago',
-      isUnread: false,
-      unreadCount: 0,
-    ),
-    ConversationModel(
-      id: '5',
-      senderName: 'Nisha Reddy',
-      senderAvatar: 'NR',
-      messagePreview: 'Congratulations on the new job! 🎉',
-      timestamp: 'Yesterday',
-      isUnread: false,
-      unreadCount: 0,
-    ),
-    ConversationModel(
-      id: '6',
-      senderName: 'Vikram Singh',
-      senderAvatar: 'VS',
-      messagePreview: 'The position has been filled. Thanks for applying...',
-      timestamp: 'Yesterday',
-      isUnread: false,
-      unreadCount: 0,
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final uid = context.read<AuthProvider>().user?.uid;
+      if (uid != null) context.read<InboxProvider>().init(uid);
+    });
+  }
 
-  // Build conversation list
-  Widget _buildConversationList(
-    List<ConversationModel> conversations, {
-    String? emptyMessage,
-  }) {
-    if (conversations.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.mail_outline_rounded,
-              size: 52,
-              color: Colors.grey.shade300,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              emptyMessage ?? 'No messages yet',
-              style: TextStyle(fontSize: 15, color: Colors.grey.shade500),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Start a conversation with candidates',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 8).copyWith(bottom: 100),
-      itemCount: conversations.length,
-      itemBuilder: (context, index) {
-        final conversation = conversations[index];
-        return MessageCard(
-          senderName: conversation.senderName,
-          senderAvatar: conversation.senderAvatar,
-          messagePreview: conversation.messagePreview,
-          timestamp: conversation.timestamp,
-          isUnread: conversation.isUnread,
-          unreadCount: conversation.unreadCount,
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) =>
-                    MessageDetailPage(conversation: conversation),
-              ),
-            );
-          },
-          onDelete: () {
-            // wire delete logic later
-          },
-        );
-      },
+  void _openChat(Conversation conv) {
+    final uid = context.read<AuthProvider>().user?.uid ?? '';
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChatScreen(conversation: conv, currentUserId: uid),
+      ),
     );
   }
 
-  void _showInfoDialog() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Icon(Icons.info_outline, color: AppColors.primary, size: 24),
-            const SizedBox(width: 10),
-            const Text(
-              'Messaging Guide',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18),
-            ),
-          ],
+  void _deleteWithUndo(Conversation conv) {
+    context.read<InboxProvider>().deleteConversation(conv.id);
+    final sm = ScaffoldMessenger.of(context);
+    sm.clearSnackBars();
+    final entry = sm.showSnackBar(SnackBar(
+      content: const Text('Conversation deleted'),
+      behavior: SnackBarBehavior.floating,
+      duration: const Duration(days: 1),
+      action: SnackBarAction(
+        label: 'Undo',
+        onPressed: () =>
+            context.read<InboxProvider>().restoreConversation(conv),
+      ),
+    ));
+    Future.delayed(
+      const Duration(seconds: 3),
+      () { try { entry.close(); } catch (_) {} },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final inbox = context.watch<InboxProvider>();
+    final uid = context.read<AuthProvider>().user?.uid ?? '';
+    final conversations = inbox.allConversations;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FB),
+      appBar: AppBar(
+        title: const Text(
+          'Inbox',
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 20),
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _infoTip(
-              Icons.speed,
-              'Reply quickly to candidates - fast responses increase job applications.',
-            ),
-            _infoTip(
-              Icons.check_circle_outline,
-              'Confirm receipt and interview dates promptly.',
-            ),
-            _infoTip(
-              Icons.star_outline,
-              'Keep professional tone in all conversations.',
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.lightbulb_outline,
-                    color: AppColors.primary,
-                    size: 18,
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
+      body: conversations.isEmpty
+          ? _EmptyState()
+          : ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: conversations.length,
+              itemBuilder: (_, i) {
+                final conv = conversations[i];
+                final isRecruiterView = conv.recruiterId == uid;
+                return Dismissible(
+                  key: Key(conv.id),
+                  direction: DismissDirection.endToStart,
+                  onDismissed: (_) => _deleteWithUndo(conv),
+                  background: Container(
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade600,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.only(right: 20),
+                    child: const Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.delete_rounded,
+                          color: Colors.white,
+                          size: 26,
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Delete',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Messages are archived automatically after 30 days of inactivity.',
-                      style: TextStyle(
-                        fontSize: 12,
+                  child: _ConvTile(
+                    conv: conv,
+                    isRecruiterView: isRecruiterView,
+                    onTap: () => _openChat(conv),
+                  ),
+                );
+              },
+            ),
+    );
+  }
+}
+
+// ── Conversation tile ─────────────────────────────────────────────────────────
+
+class _ConvTile extends StatefulWidget {
+  const _ConvTile({
+    required this.conv,
+    required this.isRecruiterView,
+    required this.onTap,
+  });
+
+  final Conversation conv;
+  final bool isRecruiterView;
+  final VoidCallback onTap;
+
+  @override
+  State<_ConvTile> createState() => _ConvTileState();
+}
+
+class _ConvTileState extends State<_ConvTile> {
+  final _service = InboxService();
+  String _photoUrl = '';
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.isRecruiterView) {
+      // Recruiter sees the applicant's profile photo (fetched from Firestore).
+      _service.getUserPhotoUrl(widget.conv.applicantId).then((url) {
+        if (mounted) setState(() => _photoUrl = url);
+      });
+    } else {
+      // Applicant sees the job's company image (already stored in the conversation).
+      _photoUrl = widget.conv.jobImageUrl;
+    }
+  }
+
+  bool get _isUnread => widget.isRecruiterView
+      ? widget.conv.unreadByRecruiter
+      : widget.conv.unreadByApplicant;
+
+  String get _title =>
+      widget.isRecruiterView ? widget.conv.applicantName : widget.conv.jobTitle;
+
+  String get _subtitle => widget.isRecruiterView
+      ? 'Applied for: ${widget.conv.jobTitle}'
+      : widget.conv.jobEmployer;
+
+  String get _initials => widget.isRecruiterView
+      ? widget.conv.applicantInitials
+      : widget.conv.employerInitials;
+
+  @override
+  Widget build(BuildContext context) {
+    final conv = widget.conv;
+    return GestureDetector(
+      onTap: widget.onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: _isUnread
+              ? AppColors.primary.withValues(alpha: 0.04)
+              : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: _isUnread
+                ? AppColors.primary.withValues(alpha: 0.2)
+                : Colors.grey.shade200,
+          ),
+        ),
+        child: Row(
+          children: [
+            // Avatar with unread dot
+            Stack(
+              children: [
+                _PhotoAvatar(
+                  photoUrl: _photoUrl,
+                  initials: _initials,
+                  size: 52,
+                ),
+                if (_isUnread)
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
                         color: AppColors.primary,
-                        fontWeight: FontWeight.w500,
+                        border: Border.all(color: Colors.white, width: 2),
                       ),
                     ),
+                  ),
+              ],
+            ),
+            const SizedBox(width: 12),
+
+            // Content
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _title,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: _isUnread
+                                ? FontWeight.w700
+                                : FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _formatTime(conv.lastMessageAt),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: _isUnread
+                              ? AppColors.primary
+                              : Colors.grey.shade400,
+                          fontWeight: _isUnread
+                              ? FontWeight.w600
+                              : FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    _subtitle,
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          conv.lastMessage,
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: _isUnread
+                                ? AppColors.textPrimary
+                                : Colors.grey.shade500,
+                            fontWeight: _isUnread
+                                ? FontWeight.w500
+                                : FontWeight.w400,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      _StatusChip(status: conv.status),
+                    ],
                   ),
                 ],
               ),
             ),
           ],
         ),
-        actions: [
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            ),
-            child: const Text('Got it'),
-          ),
-        ],
-        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        backgroundColor: Colors.white,
       ),
     );
   }
 
-  Widget _infoTip(IconData icon, String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 15, color: AppColors.primary),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(fontSize: 13, color: Colors.black87),
-            ),
-          ),
-        ],
-      ),
-    );
+  String _formatTime(DateTime dt) {
+    final now = DateTime.now();
+    final diff = now.difference(dt);
+    if (diff.inMinutes < 1) return 'Now';
+    if (diff.inHours < 1) return '${diff.inMinutes}m ago';
+    if (diff.inDays < 1) return '${diff.inHours}h ago';
+    if (diff.inDays == 1) return 'Yesterday';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return '${dt.day}/${dt.month}/${dt.year}';
   }
+}
+
+// ── Photo avatar ──────────────────────────────────────────────────────────────
+
+class _PhotoAvatar extends StatelessWidget {
+  const _PhotoAvatar({
+    required this.photoUrl,
+    required this.initials,
+    required this.size,
+  });
+
+  final String photoUrl;
+  final String initials;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FB),
-      appBar: AppBar(
-        title: const Text(
-          'Messages',
-          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 20),
-        ),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.help_outline, size: 20),
-            onPressed: _showInfoDialog,
-          ),
-        ],
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
       ),
-      body: _buildConversationList(
-        allConversations,
-        emptyMessage: 'No messages yet',
+      child: ClipOval(
+        child: photoUrl.isNotEmpty
+            ? Image.network(
+                photoUrl,
+                width: size,
+                height: size,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, _) =>
+                    _Initials(initials: initials, size: size),
+              )
+            : _Initials(initials: initials, size: size),
+      ),
+    );
+  }
+}
+
+class _Initials extends StatelessWidget {
+  const _Initials({required this.initials, required this.size});
+  final String initials;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: AppColors.primary.withValues(alpha: 0.1),
+      child: Center(
+        child: Text(
+          initials,
+          style: TextStyle(
+            fontSize: size * 0.35,
+            fontWeight: FontWeight.w700,
+            color: AppColors.primary,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Status chip ───────────────────────────────────────────────────────────────
+
+class _StatusChip extends StatelessWidget {
+  const _StatusChip({required this.status});
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    final (color, label) = switch (status) {
+      'shortlisted' => (Colors.green.shade600, 'Shortlisted'),
+      'rejected' => (Colors.red.shade600, 'Rejected'),
+      'viewed' => (AppColors.primary, 'Viewed'),
+      _ => (Colors.orange.shade600, 'Pending'),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10.5,
+          color: color,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+// ── Empty state ───────────────────────────────────────────────────────────────
+
+class _EmptyState extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.inbox_rounded, size: 56, color: Colors.grey.shade200),
+            const SizedBox(height: 16),
+            Text(
+              'No messages yet',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade500,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Apply for a job to start a conversation with a recruiter.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.shade400,
+                height: 1.45,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -130,19 +130,21 @@ class _JobSavedCard extends StatelessWidget {
 
   void _unsaveWithUndo(BuildContext context) {
     jobService.unsaveJob(uid, job.id);
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text('Removed from saved jobs'),
-          duration: const Duration(seconds: 4),
-          behavior: SnackBarBehavior.floating,
-          action: SnackBarAction(
-            label: 'Undo',
-            onPressed: () => jobService.saveJob(uid, job.id),
-          ),
-        ),
-      );
+    final sm = ScaffoldMessenger.of(context);
+    sm.clearSnackBars();
+    final entry = sm.showSnackBar(SnackBar(
+      content: const Text('Removed from saved jobs'),
+      behavior: SnackBarBehavior.floating,
+      duration: const Duration(days: 1),
+      action: SnackBarAction(
+        label: 'Undo',
+        onPressed: () => jobService.saveJob(uid, job.id),
+      ),
+    ));
+    Future.delayed(
+      const Duration(seconds: 3),
+      () { try { entry.close(); } catch (_) {} },
+    );
   }
 
   @override
