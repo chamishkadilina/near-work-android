@@ -1,125 +1,279 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
-import 'package:nearwork/features/auth/providers/auth_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:nearwork/core/constants/app_colors.dart';
+import 'package:nearwork/features/auth/providers/auth_provider.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
+
+  static const _termsUrl =
+      'https://sites.google.com/view/nearwork-terms-of-use/home';
+  static const _privacyUrl =
+      'https://sites.google.com/view/nearwork-privacy-policy/home';
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  // Staggered entrance: each element fades/slides in on its own slice
+  // of the same controller, so nothing needs its own timer.
+  late final Animation<double> _logo = CurvedAnimation(
+    parent: _controller,
+    curve: const Interval(0.0, 0.6, curve: Curves.easeOutCubic),
+  );
+  late final Animation<double> _title = CurvedAnimation(
+    parent: _controller,
+    curve: const Interval(0.15, 0.75, curve: Curves.easeOutCubic),
+  );
+  late final Animation<double> _tagline = CurvedAnimation(
+    parent: _controller,
+    curve: const Interval(0.25, 0.85, curve: Curves.easeOutCubic),
+  );
+  late final Animation<double> _button = CurvedAnimation(
+    parent: _controller,
+    curve: const Interval(0.4, 1.0, curve: Curves.easeOutCubic),
+  );
+  late final Animation<double> _terms = CurvedAnimation(
+    parent: _controller,
+    curve: const Interval(0.55, 1.0, curve: Curves.easeOutCubic),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _launchUrl(String url) async {
+    final uri = Uri.parse(url);
+
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  // Fades in + slides up 16px, driven by [animation].
+  Widget _fadeSlideIn(Animation<double> animation, Widget child) {
+    return AnimatedBuilder(
+      animation: animation,
+      child: child,
+      builder: (context, child) {
+        return Opacity(
+          opacity: animation.value,
+          child: Transform.translate(
+            offset: Offset(0, (1 - animation.value) * 16),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context);
+    final size = MediaQuery.of(context).size;
 
     return Scaffold(
+      backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // Background gradient
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [AppColors.primary.withOpacity(0.1), Colors.white],
-              ),
-            ),
-          ),
+          _BrandBackground(size: size),
 
-          // Main content
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const Spacer(flex: 1),
+                  // Top spacing
+                  SizedBox(height: size.height * 0.16),
 
-                  // Logo and welcome text
-                  Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: 80,
-                          height: 80,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: AppColors.primary,
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.primary.withOpacity(0.3),
-                                blurRadius: 20,
-                                offset: const Offset(0, 10),
-                              ),
-                            ],
-                          ),
-                          child: const Center(
-                            child: Icon(
-                              Icons.location_on,
-                              size: 40,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        const Text(
-                          'Welcome to NearWork',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Find jobs near you',
-                          style: TextStyle(fontSize: 16, color: Colors.grey),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Spacer(flex: 1),
-
-                  // Google SVG Button
-                  GestureDetector(
-                    onTap: () async {
-                      if (!authProvider.isAuthenticating) {
-                        await authProvider.signInWithGoogle();
-                      }
-                    },
-                    child: SvgPicture.asset(
-                      'assets/icons/google_signin_button.svg',
-                      height: 48,
+                  // Logo
+                  _fadeSlideIn(
+                    _logo,
+                    Image.asset(
+                      'assets/icons/nearwork_logo.png',
+                      width: 156,
+                      height: 156,
                     ),
                   ),
 
-                  // Error message if any
-                  if (authProvider.status == AuthStatus.error &&
-                      authProvider.errorMessage != null)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 16.0),
-                      child: Text(
-                        'Error: ${authProvider.errorMessage}',
-                        style: const TextStyle(color: Colors.red),
-                        textAlign: TextAlign.center,
+                  _fadeSlideIn(
+                    _title,
+                    const Text(
+                      'NearWork',
+                      style: TextStyle(
+                        fontSize: 48,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
                       ),
                     ),
+                  ),
 
-                  const Spacer(flex: 2),
+                  _fadeSlideIn(
+                    _tagline,
+                    const Text(
+                      'Find Jobs Near You',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+
+                  // Move Google button closer to center
+                  SizedBox(height: size.height * 0.24),
+
+                  _fadeSlideIn(
+                    _button,
+                    Consumer<AuthProvider>(
+                      builder: (context, authProvider, _) {
+                        // Both states share the same width: double.infinity +
+                        // Center wrapper, so swapping between them doesn't
+                        // shift horizontal position.
+                        return SizedBox(
+                          width: double.infinity,
+                          child: Center(
+                            child: authProvider.isAuthenticating
+                                ? const SizedBox(
+                                    height: 48,
+                                    width: 48,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 4,
+                                      color: AppColors.primary,
+                                    ),
+                                  )
+                                : GestureDetector(
+                                    onTap: () =>
+                                        authProvider.signInWithGoogle(),
+                                    child: SvgPicture.asset(
+                                      height: 48,
+                                      'assets/icons/google_signin_button.svg',
+                                    ),
+                                  ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+
+                  const Spacer(),
+
+                  _fadeSlideIn(_terms, _TermsText(onLinkTap: _launchUrl)),
                   const SizedBox(height: 24),
                 ],
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
 
-          // Full-screen loader when authenticating
-          if (authProvider.isAuthenticating)
-            Container(
-              color: Colors.black.withValues(alpha: 0.3),
-              child: const Center(
-                child: CircularProgressIndicator(color: Color(0xFF35BD5C)),
-              ),
-            ),
+class _TermsText extends StatelessWidget {
+  final void Function(String url) onLinkTap;
+
+  const _TermsText({required this.onLinkTap});
+
+  @override
+  Widget build(BuildContext context) {
+    const baseStyle = TextStyle(fontSize: 14, color: AppColors.textSecondary);
+
+    const linkStyle = TextStyle(
+      fontSize: 14,
+      color: AppColors.primaryDark,
+      fontWeight: FontWeight.w600,
+    );
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32.0),
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        children: [
+          const Text('By continuing, you agree to our ', style: baseStyle),
+
+          GestureDetector(
+            onTap: () => onLinkTap(LoginScreen._termsUrl),
+            child: const Text('Terms of Use', style: linkStyle),
+          ),
+
+          const Text(' and ', style: baseStyle),
+
+          GestureDetector(
+            onTap: () => onLinkTap(LoginScreen._privacyUrl),
+            child: const Text('Privacy Policy', style: linkStyle),
+          ),
+
+          const Text('.', style: baseStyle),
+        ],
+      ),
+    );
+  }
+}
+
+class _BrandBackground extends StatelessWidget {
+  final Size size;
+
+  const _BrandBackground({required this.size});
+
+  Widget _blob({
+    required double top,
+    double? left,
+    double? right,
+    required double diameter,
+    required double opacity,
+  }) {
+    return Positioned(
+      top: top,
+      left: left,
+      right: right,
+      child: Container(
+        width: diameter,
+        height: diameter,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: AppColors.primary.withValues(alpha: opacity),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: Stack(
+        children: [
+          Container(color: Colors.white),
+
+          _blob(
+            top: -size.width * 0.4,
+            left: -size.width * 0.3,
+            diameter: size.width * 1.6,
+            opacity: 0.10,
+          ),
+
+          _blob(
+            top: -size.width * 0.15,
+            right: -size.width * 0.35,
+            diameter: size.width * 0.9,
+            opacity: 0.14,
+          ),
         ],
       ),
     );

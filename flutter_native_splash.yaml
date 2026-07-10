@@ -1,0 +1,22 @@
+# Run: dart run flutter_native_splash:create --path=flutter_native_splash.yaml
+flutter_native_splash:
+  
+  # Light Mode Configuration
+  color: "#FFFFFF"
+  image: assets/icons/nearwork_icon.png
+  
+  # Dark Mode Configuration
+  color_dark: "#000000"
+  image_dark: assets/icons/nearwork_icon.png
+  
+  # Platform Support
+  android: true
+  ios: true
+  web: false
+  
+  # Android 12+ Specific Configuration
+  android_12:
+    color: "#FFFFFF"
+    image: assets/icons/nearwork_icon_padded.png
+    color_dark: "#000000"
+    image_dark: assets/icons/nearwork_icon_padded.png
