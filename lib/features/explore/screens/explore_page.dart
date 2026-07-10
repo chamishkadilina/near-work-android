@@ -1526,11 +1526,13 @@ class ExplorePageState extends State<ExplorePage>
                                     ? null
                                     : () async {
                                         setSheetState(
-                                            () => isApplyLoading = true);
+                                          () => isApplyLoading = true,
+                                        );
                                         await _showApplyDialog(sheetCtx, job);
                                         try {
                                           setSheetState(
-                                              () => isApplyLoading = false);
+                                            () => isApplyLoading = false,
+                                          );
                                         } catch (_) {}
                                       },
                                 style: ElevatedButton.styleFrom(
@@ -1540,7 +1542,8 @@ class ExplorePageState extends State<ExplorePage>
                                       ? AppColors.primary
                                       : Colors.grey.shade300,
                                   padding: const EdgeInsets.symmetric(
-                                      vertical: 14),
+                                    vertical: 14,
+                                  ),
                                   elevation: 0,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(10),
@@ -1881,24 +1884,24 @@ class ExplorePageState extends State<ExplorePage>
         return;
       }
 
-      resumes = await context
-          .read<ProfileProvider>()
-          .resumesStream(uid)
-          .first;
+      resumes = await context.read<ProfileProvider>().resumesStream(uid).first;
       if (!mounted || !sheetCtx.mounted) return;
     } catch (e) {
       if (mounted) {
         final sm = ScaffoldMessenger.of(context);
         sm.clearSnackBars();
-        final entry = sm.showSnackBar(const SnackBar(
-          content: Text('Could not load application form. Please try again.'),
-          backgroundColor: Colors.redAccent,
-          duration: Duration(days: 1),
-        ));
-        Future.delayed(
-          const Duration(seconds: 3),
-          () { try { entry.close(); } catch (_) {} },
+        final entry = sm.showSnackBar(
+          const SnackBar(
+            content: Text('Could not load application form. Please try again.'),
+            backgroundColor: Colors.redAccent,
+            duration: Duration(days: 1),
+          ),
         );
+        Future.delayed(const Duration(seconds: 3), () {
+          try {
+            entry.close();
+          } catch (_) {}
+        });
       }
       return;
     }
@@ -1907,7 +1910,10 @@ class ExplorePageState extends State<ExplorePage>
     // Pre-select default resume if one exists
     ResumeItem? selectedResume;
     for (final r in resumes) {
-      if (r.isDefault) { selectedResume = r; break; }
+      if (r.isDefault) {
+        selectedResume = r;
+        break;
+      }
     }
     String? pendingConvId;
 
@@ -1923,7 +1929,8 @@ class ExplorePageState extends State<ExplorePage>
             backgroundColor: Colors.white,
             surfaceTintColor: Colors.transparent,
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16)),
+              borderRadius: BorderRadius.circular(16),
+            ),
             titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
             contentPadding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
             actionsPadding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
@@ -1959,17 +1966,22 @@ class ExplorePageState extends State<ExplorePage>
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 8),
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.error.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                            color: AppColors.error.withValues(alpha: 0.3)),
+                          color: AppColors.error.withValues(alpha: 0.3),
+                        ),
                       ),
                       child: Text(
                         localError!,
                         style: const TextStyle(
-                            fontSize: 12.5, color: AppColors.error),
+                          fontSize: 12.5,
+                          color: AppColors.error,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -1977,9 +1989,10 @@ class ExplorePageState extends State<ExplorePage>
                   Text(
                     'Cover note',
                     style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade600),
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade600,
+                    ),
                   ),
                   const SizedBox(height: 6),
                   TextField(
@@ -1987,22 +2000,26 @@ class ExplorePageState extends State<ExplorePage>
                     maxLines: 3,
                     textCapitalization: TextCapitalization.sentences,
                     decoration: _applyInputDecoration(
-                        'Briefly introduce yourself… (optional)'),
+                      'Briefly introduce yourself… (optional)',
+                    ),
                   ),
                   const SizedBox(height: 14),
                   Text(
                     'Resume',
                     style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade600),
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade600,
+                    ),
                   ),
                   const SizedBox(height: 6),
                   if (resumes.isEmpty)
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 14),
+                        horizontal: 12,
+                        vertical: 14,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.grey.shade50,
                         borderRadius: BorderRadius.circular(10),
@@ -2010,15 +2027,19 @@ class ExplorePageState extends State<ExplorePage>
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.upload_file_outlined,
-                              size: 18, color: Colors.grey.shade400),
+                          Icon(
+                            Icons.upload_file_outlined,
+                            size: 18,
+                            color: Colors.grey.shade400,
+                          ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
                               'No resumes added yet. Upload one in Profile.',
                               style: TextStyle(
-                                  fontSize: 12.5,
-                                  color: Colors.grey.shade500),
+                                fontSize: 12.5,
+                                color: Colors.grey.shade500,
+                              ),
                             ),
                           ),
                         ],
@@ -2029,11 +2050,14 @@ class ExplorePageState extends State<ExplorePage>
                       final isSelected = selectedResume?.id == r.id;
                       return GestureDetector(
                         onTap: () => setDlgState(
-                            () => selectedResume = isSelected ? null : r),
+                          () => selectedResume = isSelected ? null : r,
+                        ),
                         child: Container(
                           margin: const EdgeInsets.only(bottom: 8),
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 10),
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
                           decoration: BoxDecoration(
                             color: isSelected
                                 ? AppColors.primary.withValues(alpha: 0.06)
@@ -2055,14 +2079,16 @@ class ExplorePageState extends State<ExplorePage>
                                   color: Colors.red.shade50,
                                   borderRadius: BorderRadius.circular(8),
                                 ),
-                                child: Icon(Icons.picture_as_pdf_rounded,
-                                    size: 18, color: Colors.red.shade400),
+                                child: Icon(
+                                  Icons.picture_as_pdf_rounded,
+                                  size: 18,
+                                  color: Colors.red.shade400,
+                                ),
                               ),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       r.fileName,
@@ -2079,8 +2105,9 @@ class ExplorePageState extends State<ExplorePage>
                                     Text(
                                       '${r.fileSize} · ${r.updatedLabel}',
                                       style: TextStyle(
-                                          fontSize: 11,
-                                          color: Colors.grey.shade500),
+                                        fontSize: 11,
+                                        color: Colors.grey.shade500,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -2089,17 +2116,23 @@ class ExplorePageState extends State<ExplorePage>
                                 Container(
                                   margin: const EdgeInsets.only(left: 6),
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 6, vertical: 2),
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: AppColors.primary
-                                        .withValues(alpha: 0.1),
+                                    color: AppColors.primary.withValues(
+                                      alpha: 0.1,
+                                    ),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
-                                  child: const Text('Default',
-                                      style: TextStyle(
-                                          fontSize: 10,
-                                          color: AppColors.primary,
-                                          fontWeight: FontWeight.w600)),
+                                  child: const Text(
+                                    'Default',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: AppColors.primary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
                                 ),
                               const SizedBox(width: 6),
                               Icon(
@@ -2130,15 +2163,18 @@ class ExplorePageState extends State<ExplorePage>
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.primary,
                         side: const BorderSide(color: AppColors.primary),
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 12),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
-                      child: const Text('Cancel',
-                          style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600)),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -2170,7 +2206,8 @@ class ExplorePageState extends State<ExplorePage>
                               } else {
                                 setDlgState(() {
                                   isSubmitting = false;
-                                  localError = context
+                                  localError =
+                                      context
                                           .read<InboxProvider>()
                                           .applyError ??
                                       'Failed to send. Try again.';
@@ -2181,22 +2218,27 @@ class ExplorePageState extends State<ExplorePage>
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
                         elevation: 0,
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 12),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                       child: isSubmitting
                           ? const SizedBox(
                               width: 18,
                               height: 18,
                               child: CircularProgressIndicator(
-                                  color: Colors.white, strokeWidth: 2),
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
                             )
-                          : const Text('Send Application',
+                          : const Text(
+                              'Send Application',
                               style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600)),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                     ),
                   ),
                 ],
@@ -2207,36 +2249,45 @@ class ExplorePageState extends State<ExplorePage>
       },
     );
 
-    coverCtrl.dispose();
+    // Delay dispose until the dialog dismiss animation has fully completed
+    // (~150 ms). Disposing immediately while the route is still animating
+    // out causes a "TextEditingController used after dispose" assertion
+    // because the TextField's AnimatedState still holds a listener reference.
+    Future.delayed(const Duration(milliseconds: 400), coverCtrl.dispose);
 
     final convId = pendingConvId;
     if (convId != null && mounted) {
       if (sheetCtx.mounted) Navigator.pop(sheetCtx);
       final messenger = ScaffoldMessenger.of(context);
       messenger.clearSnackBars();
-      final entry = messenger.showSnackBar(SnackBar(
-        content: Text('Application sent to ${job.employer}!'),
-        backgroundColor: AppColors.primary,
-        duration: const Duration(days: 1),
-        action: SnackBarAction(
-          label: 'View Chat',
-          textColor: Colors.white,
-          onPressed: () async {
-            final nav = Navigator.of(context);
-            final conv = await _inboxService.getConversation(convId);
-            if (conv != null) {
-              nav.push(MaterialPageRoute(
-                builder: (_) => ChatScreen(
-                    conversation: conv, currentUserId: uid),
-              ));
-            }
-          },
+      final entry = messenger.showSnackBar(
+        SnackBar(
+          content: Text('Application sent to ${job.employer}!'),
+          backgroundColor: AppColors.primary,
+          duration: const Duration(days: 1),
+          action: SnackBarAction(
+            label: 'View Chat',
+            textColor: Colors.white,
+            onPressed: () async {
+              final nav = Navigator.of(context);
+              final conv = await _inboxService.getConversation(convId);
+              if (conv != null) {
+                nav.push(
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        ChatScreen(conversation: conv, currentUserId: uid),
+                  ),
+                );
+              }
+            },
+          ),
         ),
-      ));
-      Future.delayed(
-        const Duration(seconds: 3),
-        () { try { entry.close(); } catch (_) {} },
       );
+      Future.delayed(const Duration(seconds: 3), () {
+        try {
+          entry.close();
+        } catch (_) {}
+      });
     }
   }
 
@@ -2251,17 +2302,17 @@ class ExplorePageState extends State<ExplorePage>
       builder: (dlgCtx) => AlertDialog(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
         contentPadding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
         actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
         title: const Text(
           'Already Applied',
           style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF1A1A2E)),
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF1A1A2E),
+          ),
         ),
         content: Text(
           'You\'ve already applied for ${job.title} at ${job.employer}.',
@@ -2278,7 +2329,8 @@ class ExplorePageState extends State<ExplorePage>
                     side: const BorderSide(color: AppColors.primary),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                   child: const Text('Dismiss'),
                 ),
@@ -2290,13 +2342,16 @@ class ExplorePageState extends State<ExplorePage>
                     final nav = Navigator.of(context);
                     Navigator.pop(dlgCtx);
                     if (sheetCtx.mounted) Navigator.pop(sheetCtx);
-                    final conv =
-                        await _inboxService.getConversation(convId);
+                    final conv = await _inboxService.getConversation(convId);
                     if (conv != null) {
-                      nav.push(MaterialPageRoute(
-                        builder: (_) => ChatScreen(
-                            conversation: conv, currentUserId: uid),
-                      ));
+                      nav.push(
+                        MaterialPageRoute(
+                          builder: (_) => ChatScreen(
+                            conversation: conv,
+                            currentUserId: uid,
+                          ),
+                        ),
+                      );
                     }
                   },
                   style: ElevatedButton.styleFrom(
@@ -2305,7 +2360,8 @@ class ExplorePageState extends State<ExplorePage>
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                   child: const Text('View Chat'),
                 ),
@@ -2318,27 +2374,24 @@ class ExplorePageState extends State<ExplorePage>
   }
 
   InputDecoration _applyInputDecoration(String hint) => InputDecoration(
-        hintText: hint,
-        hintStyle:
-            TextStyle(fontSize: 13.5, color: Colors.grey.shade400),
-        filled: true,
-        fillColor: const Color(0xFFF8F9FB),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.grey.shade200),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.grey.shade200),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide:
-              const BorderSide(color: AppColors.primary, width: 1.5),
-        ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      );
+    hintText: hint,
+    hintStyle: TextStyle(fontSize: 13.5, color: Colors.grey.shade400),
+    filled: true,
+    fillColor: const Color(0xFFF8F9FB),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(10),
+      borderSide: BorderSide(color: Colors.grey.shade200),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(10),
+      borderSide: BorderSide(color: Colors.grey.shade200),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(10),
+      borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+    ),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+  );
 
   Widget _sheetImageFallback() => Container(
     width: 72,
