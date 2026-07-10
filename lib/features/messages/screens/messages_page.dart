@@ -38,20 +38,23 @@ class _MessagesPageState extends State<MessagesPage> {
     context.read<InboxProvider>().deleteConversation(conv.id);
     final sm = ScaffoldMessenger.of(context);
     sm.clearSnackBars();
-    final entry = sm.showSnackBar(SnackBar(
-      content: const Text('Conversation deleted'),
-      behavior: SnackBarBehavior.floating,
-      duration: const Duration(days: 1),
-      action: SnackBarAction(
-        label: 'Undo',
-        onPressed: () =>
-            context.read<InboxProvider>().restoreConversation(conv),
+    final entry = sm.showSnackBar(
+      SnackBar(
+        content: const Text('Conversation deleted'),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(days: 1),
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () =>
+              context.read<InboxProvider>().restoreConversation(conv),
+        ),
       ),
-    ));
-    Future.delayed(
-      const Duration(seconds: 3),
-      () { try { entry.close(); } catch (_) {} },
     );
+    Future.delayed(const Duration(seconds: 3), () {
+      try {
+        entry.close();
+      } catch (_) {}
+    });
   }
 
   @override
@@ -182,8 +185,8 @@ class _ConvTileState extends State<_ConvTile> {
     return GestureDetector(
       onTap: widget.onTap,
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         decoration: BoxDecoration(
           color: _isUnread
               ? AppColors.primary.withValues(alpha: 0.04)
@@ -203,15 +206,15 @@ class _ConvTileState extends State<_ConvTile> {
                 _PhotoAvatar(
                   photoUrl: _photoUrl,
                   initials: _initials,
-                  size: 52,
+                  size: 64,
                 ),
                 if (_isUnread)
                   Positioned(
                     right: 0,
                     bottom: 0,
                     child: Container(
-                      width: 12,
-                      height: 12,
+                      width: 16,
+                      height: 16,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: AppColors.primary,
@@ -221,7 +224,7 @@ class _ConvTileState extends State<_ConvTile> {
                   ),
               ],
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
 
             // Content
             Expanded(
@@ -329,20 +332,24 @@ class _PhotoAvatar extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        shape: BoxShape.circle,
+        borderRadius: BorderRadius.circular(11),
         border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
       ),
-      child: ClipOval(
-        child: photoUrl.isNotEmpty
-            ? Image.network(
-                photoUrl,
-                width: size,
-                height: size,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, _) =>
-                    _Initials(initials: initials, size: size),
-              )
-            : _Initials(initials: initials, size: size),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(4.0),
+          child: photoUrl.isNotEmpty
+              ? Image.network(
+                  photoUrl,
+                  width: size,
+                  height: size,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, _) =>
+                      _Initials(initials: initials, size: size),
+                )
+              : _Initials(initials: initials, size: size),
+        ),
       ),
     );
   }

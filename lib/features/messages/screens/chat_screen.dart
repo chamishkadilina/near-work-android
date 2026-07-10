@@ -192,7 +192,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         children: [
                           if (showDate) _DateDivider(date: msg.createdAt),
                           if (msg.type == 'application')
-                            _ApplicationCard(conv: conv)
+                            _ApplicationMessage(msg: msg, isMe: isMe, conv: conv)
                           else
                             _MessageBubble(msg: msg, isMe: isMe),
                         ],
@@ -360,188 +360,257 @@ class _StatusMenu extends StatelessWidget {
   }
 }
 
-class _ApplicationCard extends StatelessWidget {
-  const _ApplicationCard({required this.conv});
+String _fmtTime(DateTime dt) {
+  final h = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
+  final m = dt.minute.toString().padLeft(2, '0');
+  final period = dt.hour >= 12 ? 'PM' : 'AM';
+  return '$h:$m $period';
+}
+
+// Shows the initial application as 1–3 left/right aligned chat bubbles:
+// "I'm interested in…" + optional cover note + optional resume tile.
+class _ApplicationMessage extends StatelessWidget {
+  const _ApplicationMessage({
+    required this.msg,
+    required this.isMe,
+    required this.conv,
+  });
+  final Message msg;
+  final bool isMe;
   final Conversation conv;
 
-  void _openResume(BuildContext context) {
-    if (conv.resumeUrl.isEmpty) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => PdfPreviewPage(
-          url: conv.resumeUrl,
-          fileName: conv.resumeName.isNotEmpty ? conv.resumeName : 'Resume',
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment:
+          isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      children: [
+        _ApplicationBubble(
+          isMe: isMe,
+          jobTitle: conv.jobTitle,
+          time: msg.createdAt,
         ),
-      ),
+        if (conv.coverNote.isNotEmpty)
+          _MessageBubble(
+            msg: Message(
+              id: '${msg.id}_cover',
+              senderId: msg.senderId,
+              text: conv.coverNote,
+              createdAt: msg.createdAt,
+            ),
+            isMe: isMe,
+          ),
+        if (conv.resumeUrl.isNotEmpty)
+          _ResumeBubble(
+            resumeUrl: conv.resumeUrl,
+            resumeName: conv.resumeName,
+            isMe: isMe,
+            time: msg.createdAt,
+          ),
+      ],
     );
   }
+}
+
+class _ApplicationBubble extends StatelessWidget {
+  const _ApplicationBubble({
+    required this.isMe,
+    required this.jobTitle,
+    required this.time,
+  });
+  final bool isMe;
+  final String jobTitle;
+  final DateTime time;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.07),
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(13),
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        mainAxisAlignment:
+            isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+        children: [
+          Flexible(
+            child: Column(
+              crossAxisAlignment:
+                  isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  constraints: BoxConstraints(
+                    maxWidth: MediaQuery.of(context).size.width * 0.72,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isMe ? AppColors.primary : Colors.white,
+                    borderRadius: BorderRadius.only(
+                      topLeft: const Radius.circular(14),
+                      topRight: const Radius.circular(14),
+                      bottomLeft: Radius.circular(isMe ? 14 : 2),
+                      bottomRight: Radius.circular(isMe ? 2 : 14),
+                    ),
+                    border: isMe
+                        ? null
+                        : Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.work_outline_rounded,
+                        size: 15,
+                        color: isMe ? Colors.white70 : AppColors.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          "I'm interested in $jobTitle",
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: isMe ? Colors.white : Colors.black87,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.work_outline_rounded,
-                    size: 16,
-                    color: AppColors.primary,
+                const SizedBox(height: 3),
+                Text(
+                  _fmtTime(time),
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    color: Colors.grey.shade400,
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Applied for: ${conv.jobTitle}',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
-            Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    conv.jobEmployer,
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+class _ResumeBubble extends StatelessWidget {
+  const _ResumeBubble({
+    required this.resumeUrl,
+    required this.resumeName,
+    required this.isMe,
+    required this.time,
+  });
+  final String resumeUrl;
+  final String resumeName;
+  final bool isMe;
+  final DateTime time;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        mainAxisAlignment:
+            isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+        children: [
+          Flexible(
+            child: Column(
+              crossAxisAlignment:
+                  isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              children: [
+                GestureDetector(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => PdfPreviewPage(
+                        url: resumeUrl,
+                        fileName: resumeName.isNotEmpty ? resumeName : 'Resume',
+                      ),
+                    ),
                   ),
-
-                  if (conv.coverNote.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    const Text(
-                      'Cover note',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black45,
-                      ),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      conv.coverNote,
-                      style: const TextStyle(
-                        fontSize: 13.5,
-                        color: Colors.black87,
-                        height: 1.45,
-                      ),
+                    constraints: BoxConstraints(
+                      maxWidth: MediaQuery.of(context).size.width * 0.72,
                     ),
-                  ],
-
-                  // Resume — tappable to open full view
-                  if (conv.resumeUrl.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    const Text(
-                      'Resume',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black45,
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.only(
+                        topLeft: const Radius.circular(14),
+                        topRight: const Radius.circular(14),
+                        bottomLeft: Radius.circular(isMe ? 14 : 2),
+                        bottomRight: Radius.circular(isMe ? 2 : 14),
                       ),
+                      border: Border.all(color: Colors.red.shade100),
                     ),
-                    const SizedBox(height: 6),
-                    GestureDetector(
-                      onTap: () => _openResume(context),
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade100,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            Icons.picture_as_pdf_rounded,
+                            size: 20,
+                            color: Colors.red.shade500,
+                          ),
                         ),
-                        decoration: BoxDecoration(
-                          color: Colors.red.shade50,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.red.shade100),
+                        const SizedBox(width: 10),
+                        Flexible(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                resumeName.isNotEmpty ? resumeName : 'Resume',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.red.shade800,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Tap to view',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.red.shade400,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 38,
-                              height: 38,
-                              decoration: BoxDecoration(
-                                color: Colors.red.shade100,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Icon(
-                                Icons.picture_as_pdf_rounded,
-                                size: 22,
-                                color: Colors.red.shade500,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    conv.resumeName.isNotEmpty
-                                        ? conv.resumeName
-                                        : 'Resume',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.red.shade800,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    'Tap to view',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: Colors.red.shade400,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Icon(
-                              Icons.open_in_new_rounded,
-                              size: 18,
-                              color: Colors.red.shade400,
-                            ),
-                          ],
+                        const SizedBox(width: 6),
+                        Icon(
+                          Icons.open_in_new_rounded,
+                          size: 16,
+                          color: Colors.red.shade400,
                         ),
-                      ),
+                      ],
                     ),
-                  ],
-                ],
-              ),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  _fmtTime(time),
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    color: Colors.grey.shade400,
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -554,7 +623,7 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final time = _formatTime(msg.createdAt);
+    final time = _fmtTime(msg.createdAt);
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
@@ -611,12 +680,6 @@ class _MessageBubble extends StatelessWidget {
     );
   }
 
-  String _formatTime(DateTime dt) {
-    final h = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
-    final m = dt.minute.toString().padLeft(2, '0');
-    final period = dt.hour >= 12 ? 'PM' : 'AM';
-    return '$h:$m $period';
-  }
 }
 
 class _DateDivider extends StatelessWidget {
