@@ -361,9 +361,13 @@ class _CreateJobPageState extends State<CreateJobPage> {
 
       final success = await postJobProvider.createJob(job);
       if (success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Job submitted for review!')),
-        );
+        final sm = ScaffoldMessenger.of(context);
+        sm.clearSnackBars();
+        final entry = sm.showSnackBar(const SnackBar(
+          content: Text('Job submitted for review!'),
+          duration: Duration(days: 1),
+        ));
+        Future.delayed(const Duration(seconds: 3), () { try { entry.close(); } catch (_) {} });
         Navigator.pop(context);
       }
     } finally {

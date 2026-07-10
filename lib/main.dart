@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:nearwork/features/auth/providers/auth_provider.dart';
 import 'package:nearwork/features/auth/screens/login_screen.dart';
 import 'package:nearwork/features/explore/providers/job_provider.dart';
+import 'package:nearwork/features/messages/providers/inbox_provider.dart';
 import 'package:nearwork/features/post_job/providers/post_job_provider.dart';
 import 'package:nearwork/features/profile/providers/profile_provider.dart';
 import 'package:nearwork/core/navigation/navigation_bar.dart';
@@ -24,6 +25,7 @@ class NearWorkApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => JobProvider()),
+        ChangeNotifierProvider(create: (_) => InboxProvider()),
         ChangeNotifierProvider(create: (_) => PostJobProvider()),
         ChangeNotifierProvider(create: (_) => ProfileProvider()),
       ],

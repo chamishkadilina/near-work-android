@@ -79,6 +79,7 @@ class ProfileProvider extends ChangeNotifier {
       final result = await _cloudinary.uploadFile(
         file: pdfFile,
         folder: 'nearwork/profiles/$uid/resumes',
+        resourceType: 'image',
       );
       final bytes = pdfFile.lengthSync();
       final fileSize = bytes < 1024 * 1024

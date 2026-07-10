@@ -8,6 +8,11 @@ import 'package:nearwork/core/utils/share_utils.dart';
 import 'package:nearwork/features/post_job/models/job.dart';
 import 'package:nearwork/features/post_job/services/job_service.dart';
 import 'package:nearwork/features/explore/providers/job_provider.dart';
+import 'package:nearwork/features/messages/providers/inbox_provider.dart';
+import 'package:nearwork/features/messages/services/inbox_service.dart';
+import 'package:nearwork/features/messages/screens/chat_screen.dart';
+import 'package:nearwork/features/profile/models/resume_item.dart';
+import 'package:nearwork/features/profile/providers/profile_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ExplorePage extends StatefulWidget {
@@ -23,6 +28,7 @@ class ExplorePageState extends State<ExplorePage>
   GoogleMapController? _filterMapController;
   BitmapDescriptor? _customIcon;
   final _jobService = JobService();
+  final _inboxService = InboxService();
 
   // ── Filter panel animation ───────────────────────────────────────────────────
   bool _filterOpen = false;
@@ -38,9 +44,12 @@ class ExplorePageState extends State<ExplorePage>
   // ── Filter state ─────────────────────────────────────────────────────────────
   final Set<String> _selectedJobTypes = {'Full Time'};
   RangeValues _salary = const RangeValues(40000, 200000);
-  double _distance = 5;
+  double _distance = 20;
   String _selectedCategory = 'All';
   final Set<String> _selectedExperiences = {};
+
+  // ── Location ──────────────────────────────────────────────────────────────────
+  Position? _currentPosition;
 
   // ── Map ──────────────────────────────────────────────────────────────────────
   static const _initial = CameraPosition(
@@ -121,6 +130,7 @@ class ExplorePageState extends State<ExplorePage>
       }
     });
     _loadCustomIcon();
+    _requestLocationSilently();
     _animCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 320),
@@ -132,6 +142,56 @@ class ExplorePageState extends State<ExplorePage>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<JobProvider>().fetchJobs();
     });
+  }
+
+  Future<void> _requestLocationSilently() async {
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) return;
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever)
+        return;
+
+      // Use last-known position instantly while waiting for GPS fix
+      final lastKnown = await Geolocator.getLastKnownPosition();
+      if (lastKnown != null && mounted) {
+        setState(() => _currentPosition = lastKnown);
+        if (_distance < 25) {
+          final cp = CameraPosition(
+            target: LatLng(lastKnown.latitude, lastKnown.longitude),
+            zoom: _distanceToZoom(_distance),
+          );
+          _controller?.animateCamera(CameraUpdate.newCameraPosition(cp));
+          _filterMapController?.animateCamera(
+            CameraUpdate.newCameraPosition(cp),
+          );
+        }
+      }
+
+      // Then get the accurate current fix
+      final position = await Geolocator.getCurrentPosition();
+      if (!mounted) return;
+      setState(() => _currentPosition = position);
+      if (_distance < 25) {
+        final cp = CameraPosition(
+          target: LatLng(position.latitude, position.longitude),
+          zoom: _distanceToZoom(_distance),
+        );
+        _controller?.animateCamera(CameraUpdate.newCameraPosition(cp));
+        _filterMapController?.animateCamera(CameraUpdate.newCameraPosition(cp));
+      }
+    } catch (_) {}
+  }
+
+  double _distanceToZoom(double distKm) {
+    if (distKm <= 2) return 13.5;
+    if (distKm <= 5) return 12.0;
+    if (distKm <= 10) return 11.0;
+    if (distKm <= 20) return 10.0;
+    return 9.5;
   }
 
   Future<void> _loadCustomIcon() async {
@@ -167,32 +227,126 @@ class ExplorePageState extends State<ExplorePage>
       });
       return;
     }
-    final filtered = _allJobKeywords
-        .where((kw) => kw.toLowerCase().contains(query))
-        .toList();
+    final allJobs = context.read<JobProvider>().jobs;
+    final seen = <String>{};
+    final suggestions = <String>[];
+    // Real job terms first (titles, employers, categories)
+    for (final job in allJobs) {
+      for (final term in [
+        job.title,
+        job.employer,
+        job.category,
+        job.location,
+      ]) {
+        final lower = term.toLowerCase();
+        if (lower.contains(query) && seen.add(lower)) {
+          suggestions.add(term);
+        }
+      }
+    }
+    // Static keywords that have at least one matching job
+    for (final kw in _allJobKeywords) {
+      final kwLower = kw.toLowerCase();
+      if (kwLower.contains(query) && !seen.contains(kwLower)) {
+        final hasJobs = allJobs.any(
+          (j) =>
+              j.title.toLowerCase().contains(kwLower) ||
+              j.employer.toLowerCase().contains(kwLower) ||
+              j.category.toLowerCase().contains(kwLower),
+        );
+        if (hasJobs && seen.add(kwLower)) suggestions.add(kw);
+      }
+    }
     setState(() {
-      _suggestions = filtered;
+      _suggestions = suggestions.take(8).toList();
       _showSuggestions = true;
     });
   }
 
   void _selectSuggestion(String suggestion) {
+    _searchController.removeListener(_onSearchChanged);
     _searchController.text = suggestion;
-    // Move cursor to end
     _searchController.selection = TextSelection.fromPosition(
       TextPosition(offset: suggestion.length),
     );
+    _searchController.addListener(_onSearchChanged);
     _searchFocus.unfocus();
     setState(() => _showSuggestions = false);
-    // todo: trigger search/filter with selected suggestion
   }
 
   void _clearSearch() {
+    _searchController.removeListener(_onSearchChanged);
     _searchController.clear();
+    _searchController.addListener(_onSearchChanged);
     setState(() {
       _suggestions = [];
       _showSuggestions = false;
     });
+  }
+
+  // ── Filter logic ──────────────────────────────────────────────────────────────
+  List<Job> _applyFilters(List<Job> allJobs) {
+    var jobs = allJobs;
+
+    // Search text
+    final q = _searchController.text.trim().toLowerCase();
+    if (q.isNotEmpty) {
+      jobs = jobs
+          .where(
+            (j) =>
+                j.title.toLowerCase().contains(q) ||
+                j.employer.toLowerCase().contains(q) ||
+                j.category.toLowerCase().contains(q) ||
+                j.location.toLowerCase().contains(q),
+          )
+          .toList();
+    }
+
+    // Job type (show all when both are selected)
+    if (_selectedJobTypes.length < _jobTypes.length) {
+      jobs = jobs.where((j) => _selectedJobTypes.contains(j.type)).toList();
+    }
+
+    // Salary (only apply when changed from default)
+    if (_salary.start != _salaryInitialStart ||
+        _salary.end != _salaryInitialEnd) {
+      jobs = jobs.where((j) {
+        if (j.salaryType == 'negotiable') return true;
+        final jobMax = j.salaryMax > 0 ? j.salaryMax : j.salaryMin;
+        return j.salaryMin <= _salary.end && jobMax >= _salary.start;
+      }).toList();
+    }
+
+    // Category
+    if (_selectedCategory != 'All') {
+      jobs = jobs.where((j) => j.category == _selectedCategory).toList();
+    }
+
+    // Experience
+    if (_selectedExperiences.isNotEmpty) {
+      jobs = jobs
+          .where((j) => _selectedExperiences.contains(j.experience))
+          .toList();
+    }
+
+    // Distance — only filter when below max (25 km = "any distance")
+    // Requires a real GPS fix; skip silently if not yet acquired
+    if (_distance < 25 && _currentPosition != null) {
+      final userLat = _currentPosition!.latitude;
+      final userLng = _currentPosition!.longitude;
+      jobs = jobs.where((j) {
+        if (j.latitude == 0 && j.longitude == 0) return true;
+        final distM = Geolocator.distanceBetween(
+          userLat,
+          userLng,
+          j.latitude,
+          j.longitude,
+        );
+        return distM / 1000 <= _distance;
+      }).toList();
+    }
+
+    return jobs;
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -220,6 +374,23 @@ class ExplorePageState extends State<ExplorePage>
     if (_filterOpen) {
       setState(() => _filterOpen = false);
       _animCtrl.reverse();
+    }
+    if (_distance >= 25) {
+      _controller?.animateCamera(
+        CameraUpdate.newCameraPosition(_sriLankaOverview),
+      );
+    } else {
+      final pos = _currentPosition;
+      if (pos != null) {
+        _controller?.animateCamera(
+          CameraUpdate.newCameraPosition(
+            CameraPosition(
+              target: LatLng(pos.latitude, pos.longitude),
+              zoom: _distanceToZoom(_distance),
+            ),
+          ),
+        );
+      }
     }
   }
 
@@ -252,24 +423,32 @@ class ExplorePageState extends State<ExplorePage>
     return 'LKR $formatted';
   }
 
-  void _resetFilters() => setState(() {
-    _selectedJobTypes
-      ..clear()
-      ..add('Full Time');
-    _salary = const RangeValues(_salaryInitialStart, _salaryInitialEnd);
-    _distance = 5;
-    _selectedCategory = 'All';
-    _selectedExperiences.clear();
-  });
+  void _resetFilters() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.clear();
+    _searchController.addListener(_onSearchChanged);
+    setState(() {
+      _suggestions = [];
+      _showSuggestions = false;
+      _selectedJobTypes
+        ..clear()
+        ..add('Full Time');
+      _salary = const RangeValues(_salaryInitialStart, _salaryInitialEnd);
+      _distance = 20;
+      _selectedCategory = 'All';
+      _selectedExperiences.clear();
+    });
+  }
 
   bool get _hasActiveFilters {
+    if (_searchController.text.trim().isNotEmpty) return true;
     if (_selectedJobTypes.length != 1 ||
         !_selectedJobTypes.contains('Full Time'))
       return true;
     if (_salary.start != _salaryInitialStart ||
         _salary.end != _salaryInitialEnd)
       return true;
-    if (_distance != 5) return true;
+    if (_distance != 20) return true;
     if (_selectedCategory != 'All') return true;
     if (_selectedExperiences.isNotEmpty) return true;
     return false;
@@ -281,7 +460,8 @@ class ExplorePageState extends State<ExplorePage>
   @override
   Widget build(BuildContext context) {
     final jobProvider = context.watch<JobProvider>();
-    final markers = _buildMarkers(jobProvider.jobs);
+    final filteredJobs = _applyFilters(jobProvider.jobs);
+    final markers = _buildMarkers(filteredJobs);
 
     return Scaffold(
       body: Stack(
@@ -291,7 +471,7 @@ class ExplorePageState extends State<ExplorePage>
             top: MediaQuery.of(context).padding.top + 16,
             left: 16,
             right: 16,
-            child: _buildSearchAndFilter(),
+            child: _buildSearchAndFilter(jobProvider.jobs),
           ),
           _buildLocationButton(),
         ],
@@ -302,7 +482,7 @@ class ExplorePageState extends State<ExplorePage>
   // ─────────────────────────────────────────────────────────────────────────────
   //  Search bar + suggestions + expanding filter panel
   // ─────────────────────────────────────────────────────────────────────────────
-  Widget _buildSearchAndFilter() {
+  Widget _buildSearchAndFilter(List<Job> allJobs) {
     return AnimatedBuilder(
       animation: _expandAnim,
       builder: (context, _) => Container(
@@ -324,7 +504,7 @@ class ExplorePageState extends State<ExplorePage>
             children: [
               _buildSearchRow(),
               // ── Suggestions dropdown ─────────────────────────────────────
-              if (_showSuggestions) _buildSuggestionsPanel(),
+              if (_showSuggestions) _buildSuggestionsPanel(allJobs),
               // ── Filter body ──────────────────────────────────────────────
               SizeTransition(
                 sizeFactor: _expandAnim,
@@ -416,7 +596,7 @@ class ExplorePageState extends State<ExplorePage>
   }
 
   // ── Suggestions panel ─────────────────────────────────────────────────────────
-  Widget _buildSuggestionsPanel() {
+  Widget _buildSuggestionsPanel(List<Job> allJobs) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -445,7 +625,6 @@ class ExplorePageState extends State<ExplorePage>
             ),
           )
         else
-          // Results list - max 5 visible, scrollable
           ConstrainedBox(
             constraints: BoxConstraints(maxHeight: _filterOpen ? 104 : 256),
             child: ListView.separated(
@@ -456,10 +635,19 @@ class ExplorePageState extends State<ExplorePage>
                   Divider(height: 1, color: Colors.grey.shade100),
               itemBuilder: (context, index) {
                 final item = _suggestions[index];
-                final query = _searchController.text.trim().toLowerCase();
+                final label = item.toLowerCase();
+                final count = allJobs
+                    .where(
+                      (j) =>
+                          j.title.toLowerCase().contains(label) ||
+                          j.employer.toLowerCase().contains(label) ||
+                          j.category.toLowerCase().contains(label),
+                    )
+                    .length;
                 return _SuggestionTile(
                   label: item,
-                  query: query,
+                  query: _searchController.text.trim().toLowerCase(),
+                  count: count,
                   onTap: () => _selectSuggestion(item),
                 );
               },
@@ -511,10 +699,10 @@ class ExplorePageState extends State<ExplorePage>
     padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
     child: Text(
       text,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 13,
         fontWeight: FontWeight.w600,
-        color: Colors.black87,
+        color: Colors.grey.shade600,
       ),
     ),
   );
@@ -544,7 +732,10 @@ class ExplorePageState extends State<ExplorePage>
                   }),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 180),
-                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: selected ? AppColors.primary : Colors.grey.shade50,
                       borderRadius: BorderRadius.circular(10),
@@ -552,7 +743,7 @@ class ExplorePageState extends State<ExplorePage>
                         color: selected
                             ? AppColors.primary
                             : Colors.grey.shade200,
-                        width: 1.5,
+                        width: selected ? 1.5 : 1,
                       ),
                     ),
                     child: Row(
@@ -560,17 +751,17 @@ class ExplorePageState extends State<ExplorePage>
                       children: [
                         Icon(
                           type == 'Full Time'
-                              ? Icons.access_time_filled_rounded
+                              ? Icons.access_time_outlined
                               : Icons.timelapse_rounded,
                           size: 15,
                           color: selected ? Colors.white : Colors.black45,
                         ),
-                        const SizedBox(width: 5),
+                        const SizedBox(width: 6),
                         Text(
                           type,
                           style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w500,
                             color: selected ? Colors.white : Colors.black54,
                           ),
                         ),
@@ -632,76 +823,131 @@ class ExplorePageState extends State<ExplorePage>
   );
 
   // ── 3. Distance ───────────────────────────────────────────────────────────────
-  Widget _buildDistanceSection() => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      _sectionLabel('Distance'),
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: SizedBox(
-            height: 160,
-            child: GoogleMap(
-              initialCameraPosition: const CameraPosition(
-                target: _userLocation,
-                zoom: 11.5,
+  static const _sriLankaOverview = CameraPosition(
+    target: LatLng(7.8731, 80.7718),
+    zoom: 7.5,
+  );
+
+  Widget _buildDistanceSection() {
+    final isAny = _distance >= 25;
+    final center = _currentPosition != null
+        ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
+        : _userLocation;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionLabel('Distance'),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SizedBox(
+              height: 160,
+              child: GoogleMap(
+                initialCameraPosition: isAny
+                    ? _sriLankaOverview
+                    : CameraPosition(
+                        target: center,
+                        zoom: _distanceToZoom(_distance),
+                      ),
+                onMapCreated: (c) {
+                  _filterMapController = c;
+                  final dist = _distance;
+                  final pos = _currentPosition;
+                  if (dist >= 25) {
+                    c.animateCamera(
+                      CameraUpdate.newCameraPosition(_sriLankaOverview),
+                    );
+                  } else if (pos != null) {
+                    c.animateCamera(
+                      CameraUpdate.newCameraPosition(
+                        CameraPosition(
+                          target: LatLng(pos.latitude, pos.longitude),
+                          zoom: _distanceToZoom(dist),
+                        ),
+                      ),
+                    );
+                  }
+                },
+                myLocationEnabled: true,
+                myLocationButtonEnabled: false,
+                zoomControlsEnabled: false,
+                compassEnabled: false,
+                mapToolbarEnabled: false,
+                scrollGesturesEnabled: false,
+                zoomGesturesEnabled: false,
+                rotateGesturesEnabled: false,
+                tiltGesturesEnabled: false,
+                circles: isAny
+                    ? {}
+                    : {
+                        Circle(
+                          circleId: const CircleId('range'),
+                          center: center,
+                          radius: _distance * 1000,
+                          fillColor: AppColors.primary.withValues(alpha: 0.12),
+                          strokeColor: AppColors.primary.withValues(alpha: 0.5),
+                          strokeWidth: 2,
+                        ),
+                      },
               ),
-              onMapCreated: (c) => _filterMapController = c,
-              myLocationEnabled: true,
-              myLocationButtonEnabled: false,
-              zoomControlsEnabled: false,
-              compassEnabled: false,
-              mapToolbarEnabled: false,
-              scrollGesturesEnabled: false,
-              zoomGesturesEnabled: false,
-              rotateGesturesEnabled: false,
-              tiltGesturesEnabled: false,
-              circles: {
-                Circle(
-                  circleId: const CircleId('range'),
-                  center: _userLocation,
-                  radius: _distance * 1000,
-                  fillColor: AppColors.primary.withOpacity(0.12),
-                  strokeColor: AppColors.primary.withOpacity(0.5),
-                  strokeWidth: 2,
-                ),
-              },
             ),
           ),
         ),
-      ),
-      const SizedBox(height: 6),
-      SliderTheme(
-        data: _sliderTheme,
-        child: Slider(
-          value: _distance,
-          min: 1,
-          max: 25,
-          divisions: 24,
-          onChanged: (v) => setState(() => _distance = v),
+        const SizedBox(height: 6),
+        SliderTheme(
+          data: _sliderTheme,
+          child: Slider(
+            value: _distance,
+            min: 1,
+            max: 25,
+            divisions: 24,
+            onChanged: (v) {
+              setState(() => _distance = v);
+              if (v >= 25) {
+                _filterMapController?.animateCamera(
+                  CameraUpdate.newCameraPosition(_sriLankaOverview),
+                );
+              } else {
+                final pos = _currentPosition;
+                if (pos != null) {
+                  _filterMapController?.animateCamera(
+                    CameraUpdate.newCameraPosition(
+                      CameraPosition(
+                        target: LatLng(pos.latitude, pos.longitude),
+                        zoom: _distanceToZoom(v),
+                      ),
+                    ),
+                  );
+                }
+              }
+            },
+          ),
         ),
-      ),
-      Padding(
-        padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('1 km', style: _axisStyle),
-            Text(
-              '${_distance.toStringAsFixed(0)} km radius',
-              style: TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primary,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('1 km', style: _axisStyle),
+              Text(
+                _distance >= 25
+                    ? 'Any distance'
+                    : '${_distance.toStringAsFixed(0)} km radius',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
+                ),
               ),
-            ),
-            Text('25 km', style: _axisStyle),
-          ],
+              Text('Any', style: _axisStyle),
+            ],
+          ),
         ),
-      ),
-    ],
-  );
+      ],
+    );
+  }
 
   // ── 4. Job Category ───────────────────────────────────────────────────────────
   Widget _buildCategorySection() => Column(
@@ -722,15 +968,15 @@ class ExplorePageState extends State<ExplorePage>
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 170),
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 11,
-                  vertical: 7,
+                  horizontal: 12,
+                  vertical: 8,
                 ),
                 decoration: BoxDecoration(
                   color: selected ? AppColors.primary : Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                     color: selected ? AppColors.primary : Colors.grey.shade200,
-                    width: 1.5,
+                    width: selected ? 1.5 : 1,
                   ),
                 ),
                 child: Row(
@@ -738,14 +984,14 @@ class ExplorePageState extends State<ExplorePage>
                   children: [
                     Icon(
                       icon,
-                      size: 13,
+                      size: 14,
                       color: selected ? Colors.white : Colors.black45,
                     ),
-                    const SizedBox(width: 5),
+                    const SizedBox(width: 6),
                     Text(
                       label,
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 12.5,
                         fontWeight: FontWeight.w500,
                         color: selected ? Colors.white : Colors.black54,
                       ),
@@ -761,13 +1007,21 @@ class ExplorePageState extends State<ExplorePage>
   );
 
   // ── 5. Experience ─────────────────────────────────────────────────────────────
+  static const _experienceChipIcons = <String, IconData>{
+    'No Experience': Icons.fiber_new_outlined,
+    '1 – 2 Years': Icons.timer_outlined,
+    '3+ Years': Icons.trending_up_outlined,
+  };
+
   Widget _buildExperienceSection() => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       _sectionLabel('Experience Level'),
       Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        child: Column(
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
           children: _experiences.map((label) {
             final selected = _selectedExperiences.contains(label);
             return GestureDetector(
@@ -778,43 +1032,35 @@ class ExplorePageState extends State<ExplorePage>
                   _selectedExperiences.add(label);
                 }
               }),
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 170),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: selected ? AppColors.primary : Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: selected ? AppColors.primary : Colors.grey.shade200,
+                    width: selected ? 1.5 : 1,
+                  ),
+                ),
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 170),
-                      width: 18,
-                      height: 18,
-                      decoration: BoxDecoration(
-                        color: selected
-                            ? AppColors.primary
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color: selected
-                              ? AppColors.primary
-                              : Colors.grey.shade400,
-                          width: 1.5,
-                        ),
-                      ),
-                      child: selected
-                          ? const Icon(
-                              Icons.check,
-                              size: 12,
-                              color: Colors.white,
-                            )
-                          : null,
+                    Icon(
+                      _experienceChipIcons[label] ?? Icons.work_outline,
+                      size: 14,
+                      color: selected ? Colors.white : Colors.black45,
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 6),
                     Text(
                       label,
                       style: TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: selected
-                            ? FontWeight.w600
-                            : FontWeight.w400,
-                        color: selected ? AppColors.primary : Colors.black87,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w500,
+                        color: selected ? Colors.white : Colors.black54,
                       ),
                     ),
                   ],
@@ -840,11 +1086,11 @@ class ExplorePageState extends State<ExplorePage>
           child: OutlinedButton(
             onPressed: _cancelFilter,
             style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.black54,
-              padding: const EdgeInsets.symmetric(vertical: 13),
-              side: BorderSide(color: Colors.grey.shade300),
+              foregroundColor: AppColors.primary,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              side: const BorderSide(color: AppColors.primary),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
               ),
             ),
             child: const Text(
@@ -853,17 +1099,17 @@ class ExplorePageState extends State<ExplorePage>
             ),
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 12),
         Expanded(
           child: ElevatedButton(
             onPressed: _closeFilter,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 13),
+              padding: const EdgeInsets.symmetric(vertical: 14),
               elevation: 0,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
               ),
             ),
             child: const Text(
@@ -952,14 +1198,22 @@ class ExplorePageState extends State<ExplorePage>
         permission == LocationPermission.deniedForever)
       return;
     final position = await Geolocator.getCurrentPosition();
-    await _controller?.animateCamera(
-      CameraUpdate.newCameraPosition(
-        CameraPosition(
-          target: LatLng(position.latitude, position.longitude),
-          zoom: 17,
-        ),
-      ),
-    );
+    if (mounted) {
+      setState(() => _currentPosition = position);
+      final target = LatLng(position.latitude, position.longitude);
+      if (_distance < 25) {
+        final cp = CameraPosition(
+          target: target,
+          zoom: _distanceToZoom(_distance),
+        );
+        _controller?.animateCamera(CameraUpdate.newCameraPosition(cp));
+        _filterMapController?.animateCamera(CameraUpdate.newCameraPosition(cp));
+      } else {
+        _controller?.animateCamera(
+          CameraUpdate.newCameraPosition(_sriLankaOverview),
+        );
+      }
+    }
   }
 
   Future<void> _openDirections(Job job) async {
@@ -986,6 +1240,7 @@ class ExplorePageState extends State<ExplorePage>
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     bool isSaved = false;
     bool savedLoaded = false;
+    bool isApplyLoading = false;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1246,7 +1501,7 @@ class ExplorePageState extends State<ExplorePage>
                               icon: Icons.message_outlined,
                               label: 'Message',
                               color: Colors.black54,
-                              onTap: () => _showMessageDialog(job),
+                              onTap: () => _showMessageDialog(context, job),
                             ),
                             const SizedBox(width: 8),
                             _footerIconBtn(
@@ -1258,27 +1513,60 @@ class ExplorePageState extends State<ExplorePage>
                           ],
                         ),
                         const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: () => Navigator.pop(context),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
+                        Builder(
+                          builder: (sheetCtx) {
+                            final uid =
+                                FirebaseAuth.instance.currentUser?.uid ?? '';
+                            final isOwnJob =
+                                uid.isNotEmpty && job.postedBy == uid;
+                            return SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: isOwnJob || isApplyLoading
+                                    ? null
+                                    : () async {
+                                        setSheetState(
+                                            () => isApplyLoading = true);
+                                        await _showApplyDialog(sheetCtx, job);
+                                        try {
+                                          setSheetState(
+                                              () => isApplyLoading = false);
+                                        } catch (_) {}
+                                      },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  foregroundColor: Colors.white,
+                                  disabledBackgroundColor: isApplyLoading
+                                      ? AppColors.primary
+                                      : Colors.grey.shade300,
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 14),
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                child: isApplyLoading
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          color: Colors.white,
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : Text(
+                                        isOwnJob
+                                            ? 'Your Job Listing'
+                                            : 'Apply Now',
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
                               ),
-                            ),
-                            child: const Text(
-                              'Apply Now',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
+                            );
+                          },
                         ),
                       ],
                     ),
@@ -1425,10 +1713,10 @@ class ExplorePageState extends State<ExplorePage>
     }
   }
 
-  Future<void> _showMessageDialog(Job job) async {
+  Future<void> _showMessageDialog(BuildContext sheetCtx, Job job) async {
     final hasWhatsApp = job.whatsApp.isNotEmpty;
     await showDialog<void>(
-      context: context,
+      context: sheetCtx,
       builder: (ctx) => AlertDialog(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
@@ -1451,7 +1739,7 @@ class ExplorePageState extends State<ExplorePage>
             ListTile(
               onTap: () {
                 Navigator.pop(ctx);
-                // TODO: navigate to in-app chat
+                _showApplyDialog(sheetCtx, job);
               },
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
@@ -1575,6 +1863,483 @@ class ExplorePageState extends State<ExplorePage>
     );
   }
 
+  Future<void> _showApplyDialog(BuildContext sheetCtx, Job job) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final userName =
+        FirebaseAuth.instance.currentUser?.displayName ?? 'Anonymous';
+
+    // Pre-fetch: check for an existing application and load saved resumes.
+    // Errors are surfaced as a SnackBar so the user always gets feedback.
+    String? existingId;
+    List<ResumeItem> resumes = const [];
+    try {
+      existingId = await _inboxService.existingConversationId(uid, job.id);
+      if (!mounted || !sheetCtx.mounted) return;
+
+      if (existingId != null) {
+        _showAlreadyAppliedDialog(sheetCtx, job, existingId, uid);
+        return;
+      }
+
+      resumes = await context
+          .read<ProfileProvider>()
+          .resumesStream(uid)
+          .first;
+      if (!mounted || !sheetCtx.mounted) return;
+    } catch (e) {
+      if (mounted) {
+        final sm = ScaffoldMessenger.of(context);
+        sm.clearSnackBars();
+        final entry = sm.showSnackBar(const SnackBar(
+          content: Text('Could not load application form. Please try again.'),
+          backgroundColor: Colors.redAccent,
+          duration: Duration(days: 1),
+        ));
+        Future.delayed(
+          const Duration(seconds: 3),
+          () { try { entry.close(); } catch (_) {} },
+        );
+      }
+      return;
+    }
+
+    final coverCtrl = TextEditingController();
+    // Pre-select default resume if one exists
+    ResumeItem? selectedResume;
+    for (final r in resumes) {
+      if (r.isDefault) { selectedResume = r; break; }
+    }
+    String? pendingConvId;
+
+    await showDialog<void>(
+      context: sheetCtx,
+      barrierDismissible: false,
+      builder: (dlgCtx) {
+        bool isSubmitting = false;
+        String? localError;
+
+        return StatefulBuilder(
+          builder: (_, setDlgState) => AlertDialog(
+            backgroundColor: Colors.white,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16)),
+            titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
+            contentPadding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+            actionsPadding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Apply for ${job.title}',
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1A1A2E),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${job.employer} · ${job.type}',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: Colors.grey.shade500,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (localError != null) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppColors.error.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                            color: AppColors.error.withValues(alpha: 0.3)),
+                      ),
+                      child: Text(
+                        localError!,
+                        style: const TextStyle(
+                            fontSize: 12.5, color: AppColors.error),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  Text(
+                    'Cover note',
+                    style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey.shade600),
+                  ),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: coverCtrl,
+                    maxLines: 3,
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: _applyInputDecoration(
+                        'Briefly introduce yourself… (optional)'),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    'Resume',
+                    style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey.shade600),
+                  ),
+                  const SizedBox(height: 6),
+                  if (resumes.isEmpty)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.upload_file_outlined,
+                              size: 18, color: Colors.grey.shade400),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'No resumes added yet. Upload one in Profile.',
+                              style: TextStyle(
+                                  fontSize: 12.5,
+                                  color: Colors.grey.shade500),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    ...resumes.map((r) {
+                      final isSelected = selectedResume?.id == r.id;
+                      return GestureDetector(
+                        onTap: () => setDlgState(
+                            () => selectedResume = isSelected ? null : r),
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? AppColors.primary.withValues(alpha: 0.06)
+                                : Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: isSelected
+                                  ? AppColors.primary
+                                  : Colors.grey.shade200,
+                              width: isSelected ? 1.5 : 1,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 34,
+                                height: 34,
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade50,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(Icons.picture_as_pdf_rounded,
+                                    size: 18, color: Colors.red.shade400),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      r.fileName,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: isSelected
+                                            ? AppColors.primary
+                                            : AppColors.textPrimary,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    Text(
+                                      '${r.fileSize} · ${r.updatedLabel}',
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.grey.shade500),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (r.isDefault)
+                                Container(
+                                  margin: const EdgeInsets.only(left: 6),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary
+                                        .withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Text('Default',
+                                      style: TextStyle(
+                                          fontSize: 10,
+                                          color: AppColors.primary,
+                                          fontWeight: FontWeight.w600)),
+                                ),
+                              const SizedBox(width: 6),
+                              Icon(
+                                isSelected
+                                    ? Icons.check_circle_rounded
+                                    : Icons.radio_button_unchecked_rounded,
+                                size: 20,
+                                color: isSelected
+                                    ? AppColors.primary
+                                    : Colors.grey.shade300,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }),
+                ],
+              ),
+            ),
+            actions: [
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: isSubmitting
+                          ? null
+                          : () => Navigator.pop(dlgCtx),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side: const BorderSide(color: AppColors.primary),
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                      ),
+                      child: const Text('Cancel',
+                          style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: isSubmitting
+                          ? null
+                          : () async {
+                              setDlgState(() {
+                                isSubmitting = true;
+                                localError = null;
+                              });
+                              final convId = await context
+                                  .read<InboxProvider>()
+                                  .applyForJob(
+                                    job: job,
+                                    applicantId: uid,
+                                    applicantName: userName,
+                                    coverNote: coverCtrl.text.trim(),
+                                    resumeUrl: selectedResume?.fileUrl ?? '',
+                                    resumeName: selectedResume?.fileName ?? '',
+                                    jobImageUrl: job.imageUrl,
+                                  );
+                              if (convId != null) {
+                                pendingConvId = convId;
+                                if (dlgCtx.mounted) {
+                                  Navigator.pop(dlgCtx);
+                                }
+                              } else {
+                                setDlgState(() {
+                                  isSubmitting = false;
+                                  localError = context
+                                          .read<InboxProvider>()
+                                          .applyError ??
+                                      'Failed to send. Try again.';
+                                });
+                              }
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                      ),
+                      child: isSubmitting
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                  color: Colors.white, strokeWidth: 2),
+                            )
+                          : const Text('Send Application',
+                              style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    coverCtrl.dispose();
+
+    final convId = pendingConvId;
+    if (convId != null && mounted) {
+      if (sheetCtx.mounted) Navigator.pop(sheetCtx);
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.clearSnackBars();
+      final entry = messenger.showSnackBar(SnackBar(
+        content: Text('Application sent to ${job.employer}!'),
+        backgroundColor: AppColors.primary,
+        duration: const Duration(days: 1),
+        action: SnackBarAction(
+          label: 'View Chat',
+          textColor: Colors.white,
+          onPressed: () async {
+            final nav = Navigator.of(context);
+            final conv = await _inboxService.getConversation(convId);
+            if (conv != null) {
+              nav.push(MaterialPageRoute(
+                builder: (_) => ChatScreen(
+                    conversation: conv, currentUserId: uid),
+              ));
+            }
+          },
+        ),
+      ));
+      Future.delayed(
+        const Duration(seconds: 3),
+        () { try { entry.close(); } catch (_) {} },
+      );
+    }
+  }
+
+  void _showAlreadyAppliedDialog(
+    BuildContext sheetCtx,
+    Job job,
+    String convId,
+    String uid,
+  ) {
+    showDialog<void>(
+      context: sheetCtx,
+      builder: (dlgCtx) => AlertDialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+        contentPadding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+        actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+        title: const Text(
+          'Already Applied',
+          style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF1A1A2E)),
+        ),
+        content: Text(
+          'You\'ve already applied for ${job.title} at ${job.employer}.',
+          style: const TextStyle(fontSize: 14, color: Colors.black87),
+        ),
+        actions: [
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(dlgCtx),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    side: const BorderSide(color: AppColors.primary),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: const Text('Dismiss'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () async {
+                    final nav = Navigator.of(context);
+                    Navigator.pop(dlgCtx);
+                    if (sheetCtx.mounted) Navigator.pop(sheetCtx);
+                    final conv =
+                        await _inboxService.getConversation(convId);
+                    if (conv != null) {
+                      nav.push(MaterialPageRoute(
+                        builder: (_) => ChatScreen(
+                            conversation: conv, currentUserId: uid),
+                      ));
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: const Text('View Chat'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  InputDecoration _applyInputDecoration(String hint) => InputDecoration(
+        hintText: hint,
+        hintStyle:
+            TextStyle(fontSize: 13.5, color: Colors.grey.shade400),
+        filled: true,
+        fillColor: const Color(0xFFF8F9FB),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey.shade200),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey.shade200),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide:
+              const BorderSide(color: AppColors.primary, width: 1.5),
+        ),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      );
+
   Widget _sheetImageFallback() => Container(
     width: 72,
     height: 72,
@@ -1630,18 +2395,14 @@ class _SuggestionTile extends StatelessWidget {
   const _SuggestionTile({
     required this.label,
     required this.query,
+    required this.count,
     required this.onTap,
   });
 
   final String label;
   final String query;
+  final int count;
   final VoidCallback onTap;
-
-  // Deterministic dummy count - stable across rebuilds, unique per keyword
-  int get _dummyCount {
-    const counts = [3, 5, 7, 8, 12, 14, 6, 9, 11, 4];
-    return counts[label.length % counts.length];
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -1708,18 +2469,19 @@ class _SuggestionTile extends StatelessWidget {
             Expanded(
               child: RichText(text: TextSpan(children: spans)),
             ),
-            // ── Dummy result count ───────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: Text(
-                '$_dummyCount',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black45,
+            // ── Result count ─────────────────────────────────────────────
+            if (count > 0)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Text(
+                  '$count',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black45,
+                  ),
                 ),
               ),
-            ),
             // ── Arrow icon ───────────────────────────────────────────────
             Icon(
               Icons.north_west_rounded,
