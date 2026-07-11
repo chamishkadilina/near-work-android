@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:nearwork/core/services/resume_match_service.dart';
 
 class Conversation {
   final String id;
@@ -18,6 +19,7 @@ class Conversation {
   final DateTime appliedAt;
   final bool unreadByRecruiter;
   final bool unreadByApplicant;
+  final int matchScore; // 0-10, or ResumeMatchService.notScored if unscored
 
   const Conversation({
     required this.id,
@@ -37,6 +39,7 @@ class Conversation {
     required this.appliedAt,
     this.unreadByRecruiter = true,
     this.unreadByApplicant = false,
+    this.matchScore = ResumeMatchService.notScored,
   });
 
   String get applicantInitials {
@@ -73,6 +76,7 @@ class Conversation {
       appliedAt: (d['appliedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       unreadByRecruiter: d['unreadByRecruiter'] ?? true,
       unreadByApplicant: d['unreadByApplicant'] ?? false,
+      matchScore: d['matchScore'] ?? ResumeMatchService.notScored,
     );
   }
 
@@ -93,6 +97,7 @@ class Conversation {
     'appliedAt': FieldValue.serverTimestamp(),
     'unreadByRecruiter': unreadByRecruiter,
     'unreadByApplicant': unreadByApplicant,
+    'matchScore': matchScore,
   };
 }
 

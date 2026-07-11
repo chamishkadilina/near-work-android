@@ -368,6 +368,11 @@ class _ConvTileState extends State<_ConvTile> {
                         ),
                       ),
                       const SizedBox(width: 8),
+                      if (widget.isRecruiterView &&
+                          conv.matchScore >= 0) ...[
+                        _MatchScoreChip(score: conv.matchScore),
+                        const SizedBox(width: 6),
+                      ],
                       _StatusChip(status: conv.status),
                     ],
                   ),
@@ -452,6 +457,45 @@ class _Initials extends StatelessWidget {
             color: AppColors.primary,
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ── Match score chip ──────────────────────────────────────────────────────────
+// Keyword-overlap score (0-10) between the applicant's resume and the job
+// post, computed once when they applied. See ResumeMatchService.
+
+class _MatchScoreChip extends StatelessWidget {
+  const _MatchScoreChip({required this.score});
+  final int score;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = score >= 7
+        ? Colors.green.shade600
+        : (score >= 4 ? Colors.orange.shade600 : Colors.grey.shade500);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.insights_rounded, size: 11, color: color),
+          const SizedBox(width: 3),
+          Text(
+            '$score/10 match',
+            style: TextStyle(
+              fontSize: 10.5,
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }

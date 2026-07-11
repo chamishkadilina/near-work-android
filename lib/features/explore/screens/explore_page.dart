@@ -6,6 +6,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 import 'package:nearwork/core/constants/app_colors.dart';
+import 'package:nearwork/core/services/resume_match_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:nearwork/core/utils/share_utils.dart';
 import 'package:nearwork/features/post_job/models/job.dart';
@@ -2270,6 +2271,12 @@ class ExplorePageState extends State<ExplorePage>
                                     resumeUrl: selectedResume?.fileUrl ?? '',
                                     resumeName: selectedResume?.fileName ?? '',
                                     jobImageUrl: job.imageUrl,
+                                    matchScore: selectedResume == null
+                                        ? ResumeMatchService.notScored
+                                        : ResumeMatchService.score(
+                                            job,
+                                            selectedResume!.resumeText,
+                                          ),
                                   );
                               if (convId != null) {
                                 pendingConvId = convId;

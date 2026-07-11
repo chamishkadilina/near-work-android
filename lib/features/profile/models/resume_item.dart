@@ -9,6 +9,7 @@ class ResumeItem {
   final String publicId;
   final DateTime uploadedAt;
   bool isDefault;
+  final String resumeText;
 
   ResumeItem({
     required this.id,
@@ -19,6 +20,7 @@ class ResumeItem {
     this.publicId = '',
     required this.uploadedAt,
     this.isDefault = false,
+    this.resumeText = '',
   });
 
   String get updatedLabel {
@@ -41,6 +43,7 @@ class ResumeItem {
       uploadedAt:
           (data['uploadedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       isDefault: data['isDefault'] ?? false,
+      resumeText: data['resumeText'] ?? '',
     );
   }
 
@@ -52,6 +55,7 @@ class ResumeItem {
       'fileUrl': fileUrl,
       'publicId': publicId,
       'isDefault': isDefault,
+      'resumeText': resumeText,
       'uploadedAt': FieldValue.serverTimestamp(),
     };
   }
