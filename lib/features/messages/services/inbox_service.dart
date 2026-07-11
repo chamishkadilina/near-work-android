@@ -24,10 +24,11 @@ class InboxService {
   // Returns existing conversation id if applicant already applied to this job.
   // Uses a single-field query (auto-indexed) + client-side filter to avoid
   // requiring the composite (applicantId, jobId) Firestore index.
-  Future<String?> existingConversationId(String applicantId, String jobId) async {
-    final snap = await _col
-        .where('applicantId', isEqualTo: applicantId)
-        .get();
+  Future<String?> existingConversationId(
+    String applicantId,
+    String jobId,
+  ) async {
+    final snap = await _col.where('applicantId', isEqualTo: applicantId).get();
     for (final doc in snap.docs) {
       if ((doc.data() as Map<String, dynamic>)['jobId'] == jobId) return doc.id;
     }
@@ -94,27 +95,21 @@ class InboxService {
   // All conversations where I am the job seeker.
   // Sorted client-side to avoid the composite (applicantId, lastMessageAt) index.
   Stream<List<Conversation>> applicantConversations(String userId) {
-    return _col
-        .where('applicantId', isEqualTo: userId)
-        .snapshots()
-        .map((s) {
-          final list = s.docs.map(Conversation.fromFirestore).toList()
-            ..sort((a, b) => b.lastMessageAt.compareTo(a.lastMessageAt));
-          return list;
-        });
+    return _col.where('applicantId', isEqualTo: userId).snapshots().map((s) {
+      final list = s.docs.map(Conversation.fromFirestore).toList()
+        ..sort((a, b) => b.lastMessageAt.compareTo(a.lastMessageAt));
+      return list;
+    });
   }
 
   // All conversations where I am the recruiter.
   // Sorted client-side to avoid the composite (recruiterId, lastMessageAt) index.
   Stream<List<Conversation>> recruiterConversations(String userId) {
-    return _col
-        .where('recruiterId', isEqualTo: userId)
-        .snapshots()
-        .map((s) {
-          final list = s.docs.map(Conversation.fromFirestore).toList()
-            ..sort((a, b) => b.lastMessageAt.compareTo(a.lastMessageAt));
-          return list;
-        });
+    return _col.where('recruiterId', isEqualTo: userId).snapshots().map((s) {
+      final list = s.docs.map(Conversation.fromFirestore).toList()
+        ..sort((a, b) => b.lastMessageAt.compareTo(a.lastMessageAt));
+      return list;
+    });
   }
 
   // Real-time messages in a conversation, oldest first.
@@ -140,6 +135,32 @@ class InboxService {
       'text': text,
       'type': 'text',
       'resumeUrl': '',
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    batch.update(convRef, {
+      'lastMessage': text,
+      'lastMessageAt': FieldValue.serverTimestamp(),
+    });
+
+    await batch.commit();
+  }
+
+  Future<void> sendResumeMessage({
+    required String conversationId,
+    required String senderId,
+    required String text,
+    required String resumeUrl,
+    required String resumeName,
+  }) async {
+    final convRef = _col.doc(conversationId);
+    final batch = _db.batch();
+
+    batch.set(convRef.collection('messages').doc(), {
+      'senderId': senderId,
+      'text': text,
+      'type': 'resume',
+      'resumeUrl': resumeUrl,
       'createdAt': FieldValue.serverTimestamp(),
     });
 

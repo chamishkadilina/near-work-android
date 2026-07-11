@@ -3,6 +3,9 @@ import 'package:nearwork/core/constants/app_colors.dart';
 import 'package:nearwork/features/messages/models/conversation.dart';
 import 'package:nearwork/features/messages/screens/pdf_preview_page.dart';
 import 'package:nearwork/features/messages/services/inbox_service.dart';
+import 'package:nearwork/features/profile/models/resume_item.dart';
+import 'package:nearwork/features/profile/providers/profile_provider.dart';
+import 'package:provider/provider.dart';
 
 class ChatScreen extends StatefulWidget {
   final Conversation conversation;
@@ -84,6 +87,198 @@ class _ChatScreenState extends State<ChatScreen> {
     _scrollToBottom();
   }
 
+  Future<void> _showResumePicker() async {
+    final uid = widget.currentUserId;
+    final resumes = await context
+        .read<ProfileProvider>()
+        .resumesStream(uid)
+        .first;
+
+    if (!mounted) return;
+
+    if (resumes.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            'No resumes found in your profile. Upload one first.',
+          ),
+          backgroundColor: AppColors.textSecondary,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          margin: const EdgeInsets.fromLTRB(16, 16, 16, 72),
+        ),
+      );
+      return;
+    }
+
+    ResumeItem? selectedResume;
+    await showDialog<void>(
+      context: context,
+      builder: (dlgCtx) {
+        return StatefulBuilder(
+          builder: (_, setDlgState) => AlertDialog(
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 6),
+            contentPadding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+            actionsPadding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+            title: const Text(
+              'Send a resume',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Choose one of your saved resumes to share in this chat.',
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                ),
+                const SizedBox(height: 12),
+                ...resumes.map((r) {
+                  final isSelected = selectedResume?.id == r.id;
+                  return GestureDetector(
+                    onTap: () => setDlgState(
+                      () => selectedResume = isSelected ? null : r,
+                    ),
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppColors.primary.withValues(alpha: 0.06)
+                            : Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: isSelected
+                              ? AppColors.primary
+                              : Colors.grey.shade200,
+                          width: isSelected ? 1.5 : 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 34,
+                            height: 34,
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.picture_as_pdf_rounded,
+                              size: 18,
+                              color: Colors.red.shade400,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  r.fileName,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: isSelected
+                                        ? AppColors.primary
+                                        : AppColors.textPrimary,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Text(
+                                  '${r.fileSize} · ${r.updatedLabel}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey.shade500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            isSelected
+                                ? Icons.check_circle_rounded
+                                : Icons.radio_button_unchecked_rounded,
+                            size: 20,
+                            color: isSelected
+                                ? AppColors.primary
+                                : Colors.grey.shade300,
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+              ],
+            ),
+            actions: [
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(dlgCtx),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side: const BorderSide(color: AppColors.primary),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: selectedResume == null
+                          ? null
+                          : () async {
+                              final resume = selectedResume!;
+                              Navigator.pop(dlgCtx);
+                              await _service.sendResumeMessage(
+                                conversationId: widget.conversation.id,
+                                senderId: widget.currentUserId,
+                                text: 'Shared a resume',
+                                resumeUrl: resume.fileUrl,
+                                resumeName: resume.fileName,
+                              );
+                              if (_isRecruiter) {
+                                await _service.markRecruiterReplied(
+                                  widget.conversation.id,
+                                );
+                              }
+                              if (mounted) _scrollToBottom();
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text('Send Resume'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollCtrl.hasClients) {
@@ -142,7 +337,55 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ],
         ),
-        actions: [if (_isRecruiter) _StatusMenu(conv: conv, service: _service)],
+        actions: [
+          if (_isRecruiter) _StatusMenu(conv: conv, service: _service),
+          if (!_isRecruiter)
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert_rounded),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              onSelected: (value) {
+                if (value == 'view_resume') {
+                  if (conv.resumeUrl.isNotEmpty) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => PdfPreviewPage(
+                          url: conv.resumeUrl,
+                          fileName: conv.resumeName.isNotEmpty
+                              ? conv.resumeName
+                              : 'Resume',
+                        ),
+                      ),
+                    );
+                  }
+                }
+              },
+              itemBuilder: (_) => [
+                PopupMenuItem<String>(
+                  value: 'view_resume',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.description_rounded,
+                        size: 24,
+                        color: AppColors.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'View shared resume',
+                        style: TextStyle(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+        ],
       ),
       body: SafeArea(
         child: Column(
@@ -197,6 +440,17 @@ class _ChatScreenState extends State<ChatScreen> {
                               isMe: isMe,
                               conv: conv,
                             )
+                          else if (msg.resumeUrl.isNotEmpty)
+                            _ResumeBubble(
+                              resumeUrl: msg.resumeUrl,
+                              resumeName:
+                                  msg.text.isNotEmpty &&
+                                      msg.text != 'Shared a resume'
+                                  ? msg.text
+                                  : 'Resume',
+                              isMe: isMe,
+                              time: msg.createdAt,
+                            )
                           else
                             _MessageBubble(msg: msg, isMe: isMe),
                         ],
@@ -208,7 +462,11 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
 
             // ── Input bar ────────────────────────────────────────────────────
-            _InputBar(controller: _msgCtrl, onSend: _sendMessage),
+            _InputBar(
+              controller: _msgCtrl,
+              onSend: _sendMessage,
+              onSendResume: _showResumePicker,
+            ),
           ],
         ),
       ),
@@ -517,6 +775,9 @@ class _ResumeBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accentColor = AppColors.primary.withValues(alpha: 0.14);
+    final accentStroke = AppColors.primary.withValues(alpha: 0.22);
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
@@ -541,79 +802,78 @@ class _ResumeBubble extends StatelessWidget {
                     ),
                   ),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
+                    padding: const EdgeInsets.all(12),
                     constraints: BoxConstraints(
-                      maxWidth: MediaQuery.of(context).size.width * 0.72,
+                      maxWidth: MediaQuery.of(context).size.width * 0.74,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.red.shade50,
+                      color: Colors.white,
                       borderRadius: BorderRadius.only(
                         topLeft: const Radius.circular(14),
                         topRight: const Radius.circular(14),
                         bottomLeft: Radius.circular(isMe ? 14 : 2),
                         bottomRight: Radius.circular(isMe ? 2 : 14),
                       ),
-                      border: Border.all(color: Colors.red.shade100),
+                      border: Border.all(color: accentStroke, width: 1.2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withValues(alpha: 0.10),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
                     ),
                     child: Row(
-                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
-                          width: 36,
-                          height: 36,
+                          width: 42,
+                          height: 42,
                           decoration: BoxDecoration(
-                            color: Colors.red.shade100,
-                            borderRadius: BorderRadius.circular(8),
+                            color: accentColor,
+                            borderRadius: BorderRadius.circular(12),
                           ),
                           child: Icon(
                             Icons.picture_as_pdf_rounded,
                             size: 20,
-                            color: Colors.red.shade500,
+                            color: AppColors.primary,
                           ),
                         ),
                         const SizedBox(width: 10),
-                        Flexible(
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 resumeName.isNotEmpty ? resumeName : 'Resume',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.red.shade800,
+                                style: const TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textPrimary,
                                 ),
-                                maxLines: 1,
+                                maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
-                              const SizedBox(height: 2),
+                              const SizedBox(height: 3),
                               Text(
-                                'Tap to view',
+                                'Tap to preview and open',
                                 style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.red.shade400,
+                                  fontSize: 11.5,
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(width: 6),
-                        Icon(
-                          Icons.open_in_new_rounded,
-                          size: 16,
-                          color: Colors.red.shade400,
-                        ),
                       ],
                     ),
                   ),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 4),
                 Text(
                   _fmtTime(time),
-                  style: TextStyle(fontSize: 10.5, color: Colors.grey.shade400),
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
                 ),
               ],
             ),
@@ -724,9 +984,14 @@ class _DateDivider extends StatelessWidget {
 }
 
 class _InputBar extends StatelessWidget {
-  const _InputBar({required this.controller, required this.onSend});
+  const _InputBar({
+    required this.controller,
+    required this.onSend,
+    required this.onSendResume,
+  });
   final TextEditingController controller;
   final VoidCallback onSend;
+  final VoidCallback onSendResume;
 
   @override
   Widget build(BuildContext context) {
@@ -752,9 +1017,23 @@ class _InputBar extends StatelessWidget {
                 hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
                 filled: true,
                 fillColor: Colors.grey.shade100,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
+                contentPadding: const EdgeInsets.fromLTRB(16, 10, 48, 10),
+                suffixIcon: Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: IconButton(
+                    onPressed: onSendResume,
+                    splashRadius: 20,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                    icon: const Icon(
+                      Icons.picture_as_pdf_rounded,
+                      size: 24,
+                      color: AppColors.primary,
+                    ),
+                  ),
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(22),
@@ -764,6 +1043,7 @@ class _InputBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
+
           GestureDetector(
             onTap: onSend,
             child: Container(
