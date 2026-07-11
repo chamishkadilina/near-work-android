@@ -35,11 +35,18 @@ class _ProfilePageState extends State<ProfilePage> {
       if (mounted) {
         final sm = ScaffoldMessenger.of(context);
         sm.clearSnackBars();
-        final e1 = sm.showSnackBar(const SnackBar(
-          content: Text('Could not open the link'),
-          duration: Duration(days: 1),
-        ));
-        Future.delayed(const Duration(seconds: 3), () { try { e1.close(); } catch (_) {} });
+        final e1 = sm.showSnackBar(
+          const SnackBar(
+            content: Text('Could not open the link'),
+            backgroundColor: Colors.redAccent,
+            duration: Duration(days: 1),
+          ),
+        );
+        Future.delayed(const Duration(seconds: 3), () {
+          try {
+            e1.close();
+          } catch (_) {}
+        });
       }
     }
   }
@@ -51,12 +58,18 @@ class _ProfilePageState extends State<ProfilePage> {
       if (mounted) {
         final sm2 = ScaffoldMessenger.of(context);
         sm2.clearSnackBars();
-        final e2 = sm2.showSnackBar(SnackBar(
-          content: const Text('Unable to share app at the moment'),
-          backgroundColor: Colors.red.shade600,
-          duration: const Duration(days: 1),
-        ));
-        Future.delayed(const Duration(seconds: 3), () { try { e2.close(); } catch (_) {} });
+        final e2 = sm2.showSnackBar(
+          SnackBar(
+            content: const Text('Unable to share app at the moment'),
+            backgroundColor: Colors.redAccent,
+            duration: const Duration(days: 1),
+          ),
+        );
+        Future.delayed(const Duration(seconds: 3), () {
+          try {
+            e2.close();
+          } catch (_) {}
+        });
       }
     }
   }

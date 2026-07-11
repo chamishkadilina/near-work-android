@@ -45,7 +45,7 @@ class SavedJobsSectionWidget extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: Colors.grey.shade600,
+                    color: AppColors.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -132,19 +132,22 @@ class _JobSavedCard extends StatelessWidget {
     jobService.unsaveJob(uid, job.id);
     final sm = ScaffoldMessenger.of(context);
     sm.clearSnackBars();
-    final entry = sm.showSnackBar(SnackBar(
-      content: const Text('Removed from saved jobs'),
-      behavior: SnackBarBehavior.floating,
-      duration: const Duration(days: 1),
-      action: SnackBarAction(
-        label: 'Undo',
-        onPressed: () => jobService.saveJob(uid, job.id),
+    final entry = sm.showSnackBar(
+      SnackBar(
+        content: const Text('Removed from saved jobs'),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(days: 1),
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () => jobService.saveJob(uid, job.id),
+        ),
       ),
-    ));
-    Future.delayed(
-      const Duration(seconds: 3),
-      () { try { entry.close(); } catch (_) {} },
     );
+    Future.delayed(const Duration(seconds: 3), () {
+      try {
+        entry.close();
+      } catch (_) {}
+    });
   }
 
   @override

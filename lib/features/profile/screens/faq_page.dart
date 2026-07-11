@@ -83,7 +83,7 @@ class FaqPage extends StatelessWidget {
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w700,
-            color: Colors.black87,
+            color: AppColors.textPrimary,
           ),
         ),
         centerTitle: true,
@@ -177,7 +177,9 @@ class _FaqTileState extends State<_FaqTile>
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: _expanded ? AppColors.primary : Colors.black87,
+                        color: _expanded
+                            ? AppColors.primary
+                            : AppColors.textPrimary,
                       ),
                     ),
                   ),

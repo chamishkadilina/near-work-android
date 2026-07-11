@@ -57,6 +57,79 @@ class _MessagesPageState extends State<MessagesPage> {
     });
   }
 
+  void _showInfoDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.info_outline, color: AppColors.primary, size: 24),
+            const SizedBox(width: 10),
+            const Text(
+              'Inbox Tips',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _tipRow(
+              Icons.mark_email_unread_outlined,
+              'Reply quickly so applicants and recruiters stay engaged.',
+            ),
+            _tipRow(
+              Icons.priority_high_outlined,
+              'Check unread messages so you do not miss new opportunities.',
+            ),
+            _tipRow(
+              Icons.delete_outline,
+              'Swipe left to remove conversations you no longer need.',
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            ),
+            child: const Text('Got it'),
+          ),
+        ],
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        backgroundColor: Colors.white,
+      ),
+    );
+  }
+
+  Widget _tipRow(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 15, color: AppColors.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(fontSize: 13, color: Colors.black87),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final inbox = context.watch<InboxProvider>();
@@ -73,6 +146,12 @@ class _MessagesPageState extends State<MessagesPage> {
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.help_outline, size: 20),
+            onPressed: _showInfoDialog,
+          ),
+        ],
       ),
       body: conversations.isEmpty
           ? _EmptyState()
