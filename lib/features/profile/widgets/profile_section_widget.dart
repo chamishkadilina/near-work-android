@@ -70,7 +70,7 @@ class ProfileSectionWidget extends StatelessWidget {
                     ? BoxDecoration(
                         image: DecorationImage(
                           image: NetworkImage(bannerURL!),
-                          fit: BoxFit.contain,
+                          fit: BoxFit.cover,
                         ),
                       )
                     : const BoxDecoration(
