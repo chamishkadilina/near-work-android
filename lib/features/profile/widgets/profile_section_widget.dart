@@ -78,9 +78,9 @@ class ProfileSectionWidget extends StatelessWidget {
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: [
-                            Color(0xFF1B2A1D),
-                            Color(0xFF1E3C24),
-                            Color(0xFF234A2B),
+                            AppColors.primary,
+                            AppColors.primaryDark,
+                            AppColors.primaryDark,
                           ],
                         ),
                       ),

@@ -1,4 +1,7 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
@@ -26,7 +29,9 @@ class ExplorePageState extends State<ExplorePage>
     with SingleTickerProviderStateMixin {
   GoogleMapController? _controller;
   GoogleMapController? _filterMapController;
-  BitmapDescriptor? _customIcon;
+  // Marker icons built from each job's own post image, keyed by job id so
+  // a given job's image is only fetched/decoded once.
+  final Map<String, BitmapDescriptor> _markerIconCache = {};
   final _jobService = JobService();
   final _inboxService = InboxService();
 
@@ -129,7 +134,6 @@ class ExplorePageState extends State<ExplorePage>
         setState(() => _showSuggestions = false);
       }
     });
-    _loadCustomIcon();
     _requestLocationSilently();
     _animCtrl = AnimationController(
       vsync: this,
@@ -194,17 +198,81 @@ class ExplorePageState extends State<ExplorePage>
     return 9.5;
   }
 
-  Future<void> _loadCustomIcon() async {
+  // ── Job-photo markers ─────────────────────────────────────────────────────────
+  // Builds a circular map marker straight from the job's own posted image
+  // (falls back to a plain pin if the job has no image or it fails to load).
+  Future<void> _loadJobMarkerIcon(Job job) async {
+    if (_markerIconCache.containsKey(job.id)) return;
+    // Reserve the slot immediately with a plain pin so _buildMarkers doesn't
+    // kick off a duplicate fetch on the next rebuild while this one is
+    // still in flight.
+    _markerIconCache[job.id] = BitmapDescriptor.defaultMarkerWithHue(
+      BitmapDescriptor.hueAzure,
+    );
+
+    if (job.imageUrl.isEmpty) return;
+
     try {
-      _customIcon = await BitmapDescriptor.asset(
-        const ImageConfiguration(size: Size(32, 32)),
-        'assets/icons/job_marker.png',
-      );
+      final icon = await _bitmapFromNetworkImage(job.imageUrl);
+      if (!mounted) return;
+      _markerIconCache[job.id] = icon;
+      setState(() {});
     } catch (_) {
-      _customIcon = BitmapDescriptor.defaultMarkerWithHue(
-        BitmapDescriptor.hueAzure,
-      );
+      // Keep the plain pin already reserved above.
     }
+  }
+
+  Future<BitmapDescriptor> _bitmapFromNetworkImage(String url) async {
+    const size = 90;
+    const border = 4.0;
+    const innerPadding = 6.0;
+
+    final data = await NetworkAssetBundle(Uri.parse(url)).load(url);
+    final bytes = data.buffer.asUint8List();
+
+    final codec = await ui.instantiateImageCodec(
+      bytes,
+      targetWidth: size,
+      targetHeight: size,
+    );
+    final frame = await codec.getNextFrame();
+    final image = frame.image;
+
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    final center = Offset(size / 2, size / 2);
+    final radius = size / 2;
+    final innerRadius = radius - border - innerPadding;
+
+    // White circular backing behind the photo.
+    canvas.drawCircle(center, radius, Paint()..color = Colors.white);
+
+    // Clip the photo into a circle and draw it inside the white backing.
+    canvas.save();
+    canvas.clipPath(
+      Path()..addOval(Rect.fromCircle(center: center, radius: innerRadius)),
+    );
+    canvas.drawImageRect(
+      image,
+      Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
+      Rect.fromCircle(center: center, radius: innerRadius),
+      Paint()..filterQuality = FilterQuality.high,
+    );
+    canvas.restore();
+
+    // Brand-colored circular outline.
+    canvas.drawCircle(
+      center,
+      radius - border / 2,
+      Paint()
+        ..color = AppColors.primary
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = border,
+    );
+
+    final rendered = await recorder.endRecording().toImage(size, size);
+    final byteData = await rendered.toByteData(format: ui.ImageByteFormat.png);
+    return BitmapDescriptor.fromBytes(byteData!.buffer.asUint8List());
   }
 
   @override
@@ -351,11 +419,14 @@ class ExplorePageState extends State<ExplorePage>
 
   // ─────────────────────────────────────────────────────────────────────────────
   Set<Marker> _buildMarkers(List<Job> jobs) {
-    final icon =
-        _customIcon ??
-        BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure);
-
     return jobs.map((job) {
+      if (!_markerIconCache.containsKey(job.id)) {
+        _loadJobMarkerIcon(job);
+      }
+      final icon =
+          _markerIconCache[job.id] ??
+          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure);
+
       return Marker(
         markerId: MarkerId(job.id),
         position: LatLng(job.latitude, job.longitude),
@@ -702,7 +773,7 @@ class ExplorePageState extends State<ExplorePage>
       style: TextStyle(
         fontSize: 13,
         fontWeight: FontWeight.w600,
-        color: Colors.grey.shade600,
+        color: AppColors.textSecondary,
       ),
     ),
   );
@@ -1308,7 +1379,7 @@ class ExplorePageState extends State<ExplorePage>
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,
-                                  color: Colors.black87,
+                                  color: AppColors.textPrimary,
                                   height: 1.3,
                                 ),
                               ),
@@ -1317,7 +1388,7 @@ class ExplorePageState extends State<ExplorePage>
                                 job.employer,
                                 style: TextStyle(
                                   fontSize: 13,
-                                  color: Colors.grey.shade600,
+                                  color: AppColors.textSecondary,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -1435,7 +1506,7 @@ class ExplorePageState extends State<ExplorePage>
                               style: TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w700,
-                                color: Colors.black87,
+                                color: AppColors.textPrimary,
                               ),
                             ),
                           ),
@@ -1606,7 +1677,7 @@ class ExplorePageState extends State<ExplorePage>
                     value,
                     style: const TextStyle(
                       fontSize: 13.5,
-                      color: Colors.black87,
+                      color: AppColors.textPrimary,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -1635,7 +1706,7 @@ class ExplorePageState extends State<ExplorePage>
           style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w700,
-            color: Color(0xFF1A1A2E),
+            color: AppColors.textPrimary,
           ),
         ),
         content: Column(
@@ -1647,7 +1718,7 @@ class ExplorePageState extends State<ExplorePage>
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: Colors.black87,
+                color: AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: 6),
@@ -1660,7 +1731,7 @@ class ExplorePageState extends State<ExplorePage>
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
-                    color: Colors.black87,
+                    color: AppColors.textPrimary,
                   ),
                 ),
               ],
@@ -1732,7 +1803,7 @@ class ExplorePageState extends State<ExplorePage>
           style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w700,
-            color: Color(0xFF1A1A2E),
+            color: AppColors.textPrimary,
           ),
         ),
         content: Column(
@@ -1819,7 +1890,9 @@ class ExplorePageState extends State<ExplorePage>
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: hasWhatsApp ? Colors.black87 : Colors.grey.shade400,
+                  color: hasWhatsApp
+                      ? AppColors.textPrimary
+                      : Colors.grey.shade400,
                 ),
               ),
               subtitle: Text(
@@ -1943,7 +2016,7 @@ class ExplorePageState extends State<ExplorePage>
                   style: const TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF1A1A2E),
+                    color: AppColors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -1991,7 +2064,7 @@ class ExplorePageState extends State<ExplorePage>
                     style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade600,
+                      color: AppColors.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -2009,7 +2082,7 @@ class ExplorePageState extends State<ExplorePage>
                     style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade600,
+                      color: AppColors.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -2311,12 +2384,12 @@ class ExplorePageState extends State<ExplorePage>
           style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w700,
-            color: Color(0xFF1A1A2E),
+            color: AppColors.textPrimary,
           ),
         ),
         content: Text(
           'You\'ve already applied for ${job.title} at ${job.employer}.',
-          style: const TextStyle(fontSize: 14, color: Colors.black87),
+          style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
         ),
         actions: [
           Row(
@@ -2470,7 +2543,7 @@ class _SuggestionTile extends StatelessWidget {
           text: label,
           style: const TextStyle(
             fontSize: 14,
-            color: Colors.black87,
+            color: AppColors.textPrimary,
             fontWeight: FontWeight.w400,
           ),
         ),

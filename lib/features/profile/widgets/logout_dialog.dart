@@ -32,17 +32,14 @@ class LogoutDialog extends StatelessWidget {
     return AlertDialog(
       title: Row(
         children: [
-          Icon(
-            Icons.logout_rounded,
-            color: Colors.red.shade600,
-            size: 24,
-          ),
+          Icon(Icons.logout_rounded, color: Colors.red.shade600, size: 24),
           const SizedBox(width: 10),
           const Text(
             'Sign Out from NearWork',
             style: TextStyle(
               fontWeight: FontWeight.w700,
               fontSize: 18,
+              color: AppColors.textPrimary,
             ),
           ),
         ],
@@ -62,10 +59,7 @@ class LogoutDialog extends StatelessWidget {
           SizedBox(height: 10),
           Text(
             'You will need to sign in again to access your profile, saved jobs, and applications.',
-            style: TextStyle(
-              fontSize: 12,
-              color: AppColors.textSecondary,
-            ),
+            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
           ),
         ],
       ),
@@ -77,10 +71,7 @@ class LogoutDialog extends StatelessWidget {
         OutlinedButton(
           onPressed: onCancel,
           style: OutlinedButton.styleFrom(
-            side: const BorderSide(
-              color: AppColors.primary,
-              width: 1.5,
-            ),
+            side: const BorderSide(color: AppColors.primary, width: 1.5),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
@@ -108,10 +99,7 @@ class LogoutDialog extends StatelessWidget {
           ),
           child: const Text(
             'Sign Out',
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
-            ),
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
           ),
         ),
       ],

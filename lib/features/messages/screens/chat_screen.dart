@@ -192,7 +192,11 @@ class _ChatScreenState extends State<ChatScreen> {
                         children: [
                           if (showDate) _DateDivider(date: msg.createdAt),
                           if (msg.type == 'application')
-                            _ApplicationMessage(msg: msg, isMe: isMe, conv: conv)
+                            _ApplicationMessage(
+                              msg: msg,
+                              isMe: isMe,
+                              conv: conv,
+                            )
                           else
                             _MessageBubble(msg: msg, isMe: isMe),
                         ],
@@ -235,22 +239,27 @@ class _AppBarAvatar extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        shape: BoxShape.circle,
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.4),
-          width: 1.5,
+          color: AppColors.primary.withValues(alpha: 0.2),
+          width: 1,
         ),
       ),
-      child: ClipOval(
-        child: photoUrl.isNotEmpty
-            ? Image.network(
-                photoUrl,
-                width: size,
-                height: size,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, _) => _fallback(),
-              )
-            : _fallback(),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(4.0),
+          child: photoUrl.isNotEmpty
+              ? Image.network(
+                  photoUrl,
+                  width: size,
+                  height: size,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, _) => _fallback(),
+                )
+              : _fallback(),
+        ),
       ),
     );
   }
@@ -382,8 +391,9 @@ class _ApplicationMessage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment:
-          isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      crossAxisAlignment: isMe
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
       children: [
         _ApplicationBubble(
           isMe: isMe,
@@ -427,13 +437,15 @@ class _ApplicationBubble extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
-        mainAxisAlignment:
-            isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: isMe
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         children: [
           Flexible(
             child: Column(
-              crossAxisAlignment:
-                  isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              crossAxisAlignment: isMe
+                  ? CrossAxisAlignment.end
+                  : CrossAxisAlignment.start,
               children: [
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -480,10 +492,7 @@ class _ApplicationBubble extends StatelessWidget {
                 const SizedBox(height: 3),
                 Text(
                   _fmtTime(time),
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    color: Colors.grey.shade400,
-                  ),
+                  style: TextStyle(fontSize: 10.5, color: Colors.grey.shade400),
                 ),
               ],
             ),
@@ -511,13 +520,15 @@ class _ResumeBubble extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
-        mainAxisAlignment:
-            isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: isMe
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         children: [
           Flexible(
             child: Column(
-              crossAxisAlignment:
-                  isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              crossAxisAlignment: isMe
+                  ? CrossAxisAlignment.end
+                  : CrossAxisAlignment.start,
               children: [
                 GestureDetector(
                   onTap: () => Navigator.push(
@@ -602,10 +613,7 @@ class _ResumeBubble extends StatelessWidget {
                 const SizedBox(height: 3),
                 Text(
                   _fmtTime(time),
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    color: Colors.grey.shade400,
-                  ),
+                  style: TextStyle(fontSize: 10.5, color: Colors.grey.shade400),
                 ),
               ],
             ),
@@ -679,7 +687,6 @@ class _MessageBubble extends StatelessWidget {
       ),
     );
   }
-
 }
 
 class _DateDivider extends StatelessWidget {
