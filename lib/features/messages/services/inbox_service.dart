@@ -50,6 +50,7 @@ class InboxService {
     required String coverNote,
     required String resumeUrl,
     required String resumeName,
+    required int matchScore,
   }) async {
     final convRef = _col.doc();
     final firstMessage = coverNote.isNotEmpty
@@ -67,6 +68,7 @@ class InboxService {
       'coverNote': coverNote,
       'resumeUrl': resumeUrl,
       'resumeName': resumeName,
+      'matchScore': matchScore,
       'status': 'pending',
       'lastMessage': firstMessage,
       'lastMessageAt': FieldValue.serverTimestamp(),

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:nearwork/features/profile/models/resume_item.dart';
 import 'package:nearwork/features/profile/services/cloudinary_service.dart';
 import 'package:nearwork/features/profile/services/profile_service.dart';
+import 'package:nearwork/features/profile/services/resume_text_extractor.dart';
 
 class ProfileProvider extends ChangeNotifier {
   final CloudinaryService _cloudinary = CloudinaryService();
@@ -76,11 +77,19 @@ class ProfileProvider extends ChangeNotifier {
         notifyListeners();
         return;
       }
-      final result = await _cloudinary.uploadFile(
-        file: pdfFile,
-        folder: 'nearwork/profiles/$uid/resumes',
-        resourceType: 'image',
-      );
+      // Extract text locally in parallel with the upload — this is the only
+      // point the raw PDF bytes are available; Cloudinary's raw delivery is
+      // blocked so the text can never be recovered from the uploaded file.
+      final results = await Future.wait([
+        _cloudinary.uploadFile(
+          file: pdfFile,
+          folder: 'nearwork/profiles/$uid/resumes',
+          resourceType: 'image',
+        ),
+        ResumeTextExtractor.extractText(pdfFile),
+      ]);
+      final result = results[0] as CloudinaryUploadResult;
+      final resumeText = results[1] as String;
       final bytes = pdfFile.lengthSync();
       final fileSize = bytes < 1024 * 1024
           ? '${(bytes / 1024).toStringAsFixed(0)} KB'
@@ -94,6 +103,7 @@ class ProfileProvider extends ChangeNotifier {
         publicId: result.publicId,
         uploadedAt: DateTime.now(),
         isDefault: count == 0,
+        resumeText: resumeText,
       );
       await _profileService.addResume(uid, resume);
     } catch (e) {

@@ -68,6 +68,7 @@ class InboxProvider extends ChangeNotifier {
     required String resumeUrl,
     required String resumeName,
     required String jobImageUrl,
+    required int matchScore,
   }) async {
     _isApplying = true;
     _applyError = null;
@@ -92,6 +93,7 @@ class InboxProvider extends ChangeNotifier {
         coverNote: coverNote,
         resumeUrl: resumeUrl,
         resumeName: resumeName,
+        matchScore: matchScore,
       );
 
       _isApplying = false;
