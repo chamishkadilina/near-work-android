@@ -48,9 +48,9 @@ class ExplorePageState extends State<ExplorePage>
   bool _showSuggestions = false;
 
   // ── Filter state ─────────────────────────────────────────────────────────────
-  final Set<String> _selectedJobTypes = {'Full Time'};
+  final Set<String> _selectedJobTypes = Set.from(_jobTypes);
   RangeValues _salary = const RangeValues(40000, 200000);
-  double _distance = 20;
+  double _distance = 25;
   String _selectedCategory = 'All';
   final Set<String> _selectedExperiences = {};
 
@@ -164,30 +164,24 @@ class ExplorePageState extends State<ExplorePage>
       final lastKnown = await Geolocator.getLastKnownPosition();
       if (lastKnown != null && mounted) {
         setState(() => _currentPosition = lastKnown);
-        if (_distance < 25) {
-          final cp = CameraPosition(
-            target: LatLng(lastKnown.latitude, lastKnown.longitude),
-            zoom: _distanceToZoom(_distance),
-          );
-          _controller?.animateCamera(CameraUpdate.newCameraPosition(cp));
-          _filterMapController?.animateCamera(
-            CameraUpdate.newCameraPosition(cp),
-          );
-        }
+        final cp = CameraPosition(
+          target: LatLng(lastKnown.latitude, lastKnown.longitude),
+          zoom: _distanceToZoom(_distance),
+        );
+        _controller?.animateCamera(CameraUpdate.newCameraPosition(cp));
+        _filterMapController?.animateCamera(CameraUpdate.newCameraPosition(cp));
       }
 
       // Then get the accurate current fix
       final position = await Geolocator.getCurrentPosition();
       if (!mounted) return;
       setState(() => _currentPosition = position);
-      if (_distance < 25) {
-        final cp = CameraPosition(
-          target: LatLng(position.latitude, position.longitude),
-          zoom: _distanceToZoom(_distance),
-        );
-        _controller?.animateCamera(CameraUpdate.newCameraPosition(cp));
-        _filterMapController?.animateCamera(CameraUpdate.newCameraPosition(cp));
-      }
+      final cp = CameraPosition(
+        target: LatLng(position.latitude, position.longitude),
+        zoom: _distanceToZoom(_distance),
+      );
+      _controller?.animateCamera(CameraUpdate.newCameraPosition(cp));
+      _filterMapController?.animateCamera(CameraUpdate.newCameraPosition(cp));
     } catch (_) {}
   }
 
@@ -200,17 +194,10 @@ class ExplorePageState extends State<ExplorePage>
   }
 
   // ── Job-photo markers ─────────────────────────────────────────────────────────
-  // Builds a circular map marker straight from the job's own posted image
-  // (falls back to a plain pin if the job has no image or it fails to load).
+  // Builds a circular map marker straight from the job's own posted image.
+  // No placeholder marker is used while the image is loading.
   Future<void> _loadJobMarkerIcon(Job job) async {
     if (_markerIconCache.containsKey(job.id)) return;
-    // Reserve the slot immediately with a plain pin so _buildMarkers doesn't
-    // kick off a duplicate fetch on the next rebuild while this one is
-    // still in flight.
-    _markerIconCache[job.id] = BitmapDescriptor.defaultMarkerWithHue(
-      BitmapDescriptor.hueAzure,
-    );
-
     if (job.imageUrl.isEmpty) return;
 
     try {
@@ -219,13 +206,13 @@ class ExplorePageState extends State<ExplorePage>
       _markerIconCache[job.id] = icon;
       setState(() {});
     } catch (_) {
-      // Keep the plain pin already reserved above.
+      // No default icon; if load fails, the job is not shown on the map.
     }
   }
 
   Future<BitmapDescriptor> _bitmapFromNetworkImage(String url) async {
-    const size = 90;
-    const border = 4.0;
+    const size = 106;
+    const border = 8.0;
     const innerPadding = 6.0;
 
     final data = await NetworkAssetBundle(Uri.parse(url)).load(url);
@@ -420,21 +407,21 @@ class ExplorePageState extends State<ExplorePage>
 
   // ─────────────────────────────────────────────────────────────────────────────
   Set<Marker> _buildMarkers(List<Job> jobs) {
-    return jobs.map((job) {
-      if (!_markerIconCache.containsKey(job.id)) {
-        _loadJobMarkerIcon(job);
-      }
-      final icon =
-          _markerIconCache[job.id] ??
-          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure);
-
-      return Marker(
-        markerId: MarkerId(job.id),
-        position: LatLng(job.latitude, job.longitude),
-        icon: icon,
-        onTap: () => _showJobBottomSheet(job),
-      );
-    }).toSet();
+    return jobs
+        .where((job) {
+          if (!_markerIconCache.containsKey(job.id)) _loadJobMarkerIcon(job);
+          return _markerIconCache.containsKey(job.id);
+        })
+        .map((job) {
+          final icon = _markerIconCache[job.id]!;
+          return Marker(
+            markerId: MarkerId(job.id),
+            position: LatLng(job.latitude, job.longitude),
+            icon: icon,
+            onTap: () => _showJobBottomSheet(job),
+          );
+        })
+        .toSet();
   }
 
   void _toggleFilter() {
@@ -504,9 +491,9 @@ class ExplorePageState extends State<ExplorePage>
       _showSuggestions = false;
       _selectedJobTypes
         ..clear()
-        ..add('Full Time');
+        ..addAll(_jobTypes);
       _salary = const RangeValues(_salaryInitialStart, _salaryInitialEnd);
-      _distance = 20;
+      _distance = 25;
       _selectedCategory = 'All';
       _selectedExperiences.clear();
     });
@@ -514,13 +501,11 @@ class ExplorePageState extends State<ExplorePage>
 
   bool get _hasActiveFilters {
     if (_searchController.text.trim().isNotEmpty) return true;
-    if (_selectedJobTypes.length != 1 ||
-        !_selectedJobTypes.contains('Full Time'))
-      return true;
+    if (_selectedJobTypes.length != _jobTypes.length) return true;
     if (_salary.start != _salaryInitialStart ||
         _salary.end != _salaryInitialEnd)
       return true;
-    if (_distance != 20) return true;
+    if (_distance != 25) return true;
     if (_selectedCategory != 'All') return true;
     if (_selectedExperiences.isNotEmpty) return true;
     return false;
@@ -2300,7 +2285,7 @@ class ExplorePageState extends State<ExplorePage>
                         elevation: 0,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(8),
                         ),
                       ),
                       child: isSubmitting
