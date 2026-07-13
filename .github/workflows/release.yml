@@ -44,29 +44,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: release/nearwork-${{ github.ref_name }}.apk
-          body: |
-            ## NearWork ${{ github.ref_name }}
-            
-            ### 🎯 What's New
-            Find jobs near you with the latest NearWork update!
-            
-            ### 📱 Installation
-            1. Download nearwork-${{ github.ref_name }}.apk
-            2. Enable "Install from Unknown Sources" on your Android device
-            3. Install the APK
-            
-            ### ✨ Features
-            🗺️ Smart map-based job search
-            📍 Find jobs in your location
-            💰 Transparent salary information
-            ⭐ Verified job listings
-            📱 Easy job application process
-            
-            ### 🐛 Bug Fixes & Improvements
-            - Improved app performance
-            - Better location accuracy
-            - Enhanced user experience
-            
+          body_path: .github/release-notes.md
           draft: false
           prerelease: false
         env:
