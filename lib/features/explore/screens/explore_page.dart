@@ -1204,7 +1204,22 @@ class ExplorePageState extends State<ExplorePage>
   // ─────────────────────────────────────────────────────────────────────────────
   Widget _buildMap(Set<Marker> markers) => GoogleMap(
     initialCameraPosition: _initial,
-    onMapCreated: (c) => _controller = c,
+    onMapCreated: (c) {
+      _controller = c;
+      // FIX: If the location was already fetched silently before the map
+      // finished building, move the camera to the user immediately.
+      if (_currentPosition != null) {
+        final target = LatLng(
+          _currentPosition!.latitude,
+          _currentPosition!.longitude,
+        );
+        c.animateCamera(
+          CameraUpdate.newCameraPosition(
+            CameraPosition(target: target, zoom: 15.0),
+          ),
+        );
+      }
+    },
     markers: markers,
     myLocationEnabled: true,
     myLocationButtonEnabled: false,
@@ -1254,19 +1269,29 @@ class ExplorePageState extends State<ExplorePage>
     if (permission == LocationPermission.denied ||
         permission == LocationPermission.deniedForever)
       return;
+
     final position = await Geolocator.getCurrentPosition();
+
     if (mounted) {
       setState(() => _currentPosition = position);
       final target = LatLng(position.latitude, position.longitude);
+
+      // FIX: Always animate the main map to the user's actual location
+      final cp = CameraPosition(
+        target: target,
+        zoom: 15.0, // A good default zoom for finding your own location
+      );
+      _controller?.animateCamera(CameraUpdate.newCameraPosition(cp));
+
+      // Keep the filter map in sync with the filter settings
       if (_distance < 25) {
-        final cp = CameraPosition(
-          target: target,
-          zoom: _distanceToZoom(_distance),
+        _filterMapController?.animateCamera(
+          CameraUpdate.newCameraPosition(
+            CameraPosition(target: target, zoom: _distanceToZoom(_distance)),
+          ),
         );
-        _controller?.animateCamera(CameraUpdate.newCameraPosition(cp));
-        _filterMapController?.animateCamera(CameraUpdate.newCameraPosition(cp));
       } else {
-        _controller?.animateCamera(
+        _filterMapController?.animateCamera(
           CameraUpdate.newCameraPosition(_sriLankaOverview),
         );
       }

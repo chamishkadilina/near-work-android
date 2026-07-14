@@ -14,19 +14,19 @@
       },
       "oauth_client": [
         {
+          "client_id": "871321450809-a4sccmujtponuergj6q6mfmc9ke460d8.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.chamishkadilina.nearwork",
+            "certificate_hash": "730481f0cc0a4d9552250fe29997e6ec6c72dc5c"
+          }
+        },
+        {
           "client_id": "871321450809-bduijoa2q2n6si2f1jml7n15horc90ka.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.chamishkadilina.nearwork",
             "certificate_hash": "b954ea9fae4088138c6972db821155da9db12be9"
-          }
-        },
-        {
-          "client_id": "871321450809-ceebbh8i2pbkgp1ikgdoksqr4muesje5.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.chamishkadilina.nearwork",
-            "certificate_hash": "cf8924b4cc843a75cc9db26a579ca97bfbe1c2ed"
           }
         },
         {
